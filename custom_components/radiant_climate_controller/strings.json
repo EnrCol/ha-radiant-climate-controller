@@ -1,0 +1,33 @@
+{
+  "title": "Radiant Climate Controller",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Configura centralina radiante",
+        "description": "Inserisci le entità sorgente. Le liste devono essere separate da virgola.",
+        "data": {
+          "name": "Nome",
+          "season_entity": "Entità modalità stagionale",
+          "temperature_entities": "Entità temperatura zona giorno",
+          "humidity_entities": "Entità umidità zona giorno"
+        }
+      }
+    },
+    "abort": {
+      "already_configured": "La centralina radiante è già configurata."
+    }
+  },
+  "entity": {
+    "sensor": {
+      "zone_temperature": {"name": "Temperatura zona giorno"},
+      "zone_humidity": {"name": "Umidità zona giorno"},
+      "dew_point": {"name": "Punto rugiada zona giorno"},
+      "climate_state": {"name": "Stato radiante"},
+      "target_requested": {"name": "Target mandata richiesto"},
+      "target_safe": {"name": "Target mandata sicuro"},
+      "target_final": {"name": "Target mandata finale"},
+      "dew_point_delta": {"name": "Delta sicurezza rugiada"},
+      "season_state": {"name": "Stato stagione"}
+    }
+  }
+}
