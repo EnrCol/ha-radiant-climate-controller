@@ -144,7 +144,8 @@ class RadiantClimateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             dew_point + DEFAULT_DEW_POINT_MARGIN if dew_point is not None else 19.0
         )
 
-        season_state = self.hass.states.get(season_entity).state if season_entity else None
+        season_state_obj = self.hass.states.get(season_entity) if season_entity else None
+        season_state = season_state_obj.state if season_state_obj is not None else None
         summer_enabled = season_state == "Estate"
         target_final = max(target_requested, target_safe) if summer_enabled else None
 
