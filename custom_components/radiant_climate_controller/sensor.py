@@ -82,6 +82,70 @@ SENSORS: tuple[RadiantSensorDescription, ...] = (
         translation_key="season_state",
         value_key="season_state",
     ),
+    RadiantSensorDescription(
+        key="hottest_room",
+        translation_key="hottest_room",
+        value_key="hottest_room",
+    ),
+    RadiantSensorDescription(
+        key="hottest_room_temperature",
+        translation_key="hottest_room_temperature",
+        value_key="hottest_room_temperature",
+        native_unit_of_measurement=UnitOfTemperature.CELSIUS,
+        device_class=SensorDeviceClass.TEMPERATURE,
+    ),
+    RadiantSensorDescription(
+        key="thermal_trend_per_hour",
+        translation_key="thermal_trend_per_hour",
+        value_key="thermal_trend_per_hour",
+        native_unit_of_measurement="°C/h",
+    ),
+    RadiantSensorDescription(
+        key="critical_dew_room",
+        translation_key="critical_dew_room",
+        value_key="critical_dew_room",
+    ),
+    RadiantSensorDescription(
+        key="critical_dew_zone",
+        translation_key="critical_dew_zone",
+        value_key="critical_dew_zone",
+    ),
+    RadiantSensorDescription(
+        key="critical_dew_delta",
+        translation_key="critical_dew_delta",
+        value_key="critical_dew_delta",
+        native_unit_of_measurement=UnitOfTemperature.CELSIUS,
+    ),
+    RadiantSensorDescription(
+        key="critical_dew_state",
+        translation_key="critical_dew_state",
+        value_key="critical_dew_state",
+    ),
+    RadiantSensorDescription(
+        key="recommended_action",
+        translation_key="recommended_action",
+        value_key="recommended_action",
+    ),
+    RadiantSensorDescription(
+        key="target_reason",
+        translation_key="target_reason",
+        value_key="target_reason",
+    ),
+    RadiantSensorDescription(
+        key="action_reason",
+        translation_key="action_reason",
+        value_key="action_reason",
+    ),
+    RadiantSensorDescription(
+        key="critical_room_count",
+        translation_key="critical_room_count",
+        value_key="critical_room_count",
+    ),
+    RadiantSensorDescription(
+        key="warning_room_count",
+        translation_key="warning_room_count",
+        value_key="warning_room_count",
+    ),
 )
 
 
