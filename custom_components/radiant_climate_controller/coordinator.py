@@ -36,14 +36,12 @@ _LOGGER = logging.getLogger(__name__)
 
 
 def _split_entities(raw: str | None) -> list[str]:
-    """Split a comma-separated entity list."""
     if not raw:
         return []
     return [item.strip() for item in raw.split(",") if item.strip()]
 
 
 def _as_float(value: Any) -> float | None:
-    """Convert a Home Assistant state/attribute value to float."""
     try:
         if value in (None, "unknown", "unavailable"):
             return None
@@ -53,7 +51,6 @@ def _as_float(value: Any) -> float | None:
 
 
 def _dew_point_celsius(temperature: float, humidity: float) -> float | None:
-    """Calculate dew point with Magnus formula."""
     if humidity <= 0:
         return None
     a = 17.62
@@ -63,10 +60,7 @@ def _dew_point_celsius(temperature: float, humidity: float) -> float | None:
 
 
 class RadiantClimateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
-    """Coordinator that calculates radiant climate values from HA states."""
-
     def __init__(self, hass: HomeAssistant, entry: ConfigEntry) -> None:
-        """Initialize coordinator."""
         self.entry = entry
         super().__init__(
             hass,
@@ -77,7 +71,6 @@ class RadiantClimateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         )
 
     async def _async_update_data(self) -> dict[str, Any]:
-        """Update calculated data."""
         return self._calculate()
 
     def _temperature_from_entity(self, entity_id: str) -> float | None:
@@ -114,7 +107,7 @@ class RadiantClimateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         ]
 
         zone_temperature = max(temperatures) if temperatures else None
-        zone_humidity = sum(humidities) / len(humidities) if humidities else None
+        zone_humidity = max(humidities) if humidities else None
         dew_point = (
             _dew_point_celsius(zone_temperature, zone_humidity)
             if zone_temperature is not None and zone_humidity is not None
@@ -141,9 +134,7 @@ class RadiantClimateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         else:
             target_requested = DEFAULT_TARGET_MAINTENANCE
 
-        target_safe = (
-            dew_point + DEFAULT_DEW_POINT_MARGIN if dew_point is not None else 19.0
-        )
+        target_safe = dew_point + DEFAULT_DEW_POINT_MARGIN if dew_point is not None else 19.0
 
         season_state_obj = self.hass.states.get(season_entity) if season_entity else None
         season_state = season_state_obj.state if season_state_obj is not None else None
