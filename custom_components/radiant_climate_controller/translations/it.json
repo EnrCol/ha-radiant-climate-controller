@@ -4,12 +4,10 @@
     "step": {
       "user": {
         "title": "Configura centralina radiante",
-        "description": "Inserisci le entità sorgente. Le liste devono essere separate da virgola. La v0.2 usa anche il modello stanze interno.",
+        "description": "La v0.2 usa il modello stanze dell'impianto di Enrico. Serve solo confermare nome e modalità stagionale.",
         "data": {
           "name": "Nome",
-          "season_entity": "Entità modalità stagionale",
-          "temperature_entities": "Entità temperatura",
-          "humidity_entities": "Entità umidità"
+          "season_entity": "Entità modalità stagionale"
         }
       }
     },
