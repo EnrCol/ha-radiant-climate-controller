@@ -4,12 +4,12 @@
     "step": {
       "user": {
         "title": "Configura centralina radiante",
-        "description": "Inserisci le entità sorgente. Le liste devono essere separate da virgola.",
+        "description": "Inserisci le entità sorgente. Le liste devono essere separate da virgola. La v0.2 usa anche il modello stanze interno.",
         "data": {
           "name": "Nome",
           "season_entity": "Entità modalità stagionale",
-          "temperature_entities": "Entità temperatura zona giorno",
-          "humidity_entities": "Entità umidità zona giorno"
+          "temperature_entities": "Entità temperatura",
+          "humidity_entities": "Entità umidità"
         }
       }
     },
@@ -19,15 +19,27 @@
   },
   "entity": {
     "sensor": {
-      "zone_temperature": {"name": "Temperatura zona giorno"},
-      "zone_humidity": {"name": "Umidità zona giorno"},
-      "dew_point": {"name": "Punto rugiada zona giorno"},
+      "zone_temperature": {"name": "Temperatura massima casa"},
+      "zone_humidity": {"name": "Umidità massima casa"},
+      "dew_point": {"name": "Punto rugiada massimo casa"},
       "climate_state": {"name": "Stato radiante"},
-      "target_requested": {"name": "Target mandata richiesto"},
+      "target_requested": {"name": "Target mandata comfort"},
       "target_safe": {"name": "Target mandata sicuro"},
-      "target_final": {"name": "Target mandata finale"},
-      "dew_point_delta": {"name": "Delta sicurezza rugiada"},
-      "season_state": {"name": "Stato stagione"}
+      "target_final": {"name": "Target mandata consigliato"},
+      "dew_point_delta": {"name": "Delta sicurezza target"},
+      "season_state": {"name": "Stato stagione"},
+      "hottest_room": {"name": "Stanza più calda"},
+      "hottest_room_temperature": {"name": "Temperatura stanza più calda"},
+      "thermal_trend_per_hour": {"name": "Trend temperatura casa"},
+      "critical_dew_room": {"name": "Stanza rugiada critica"},
+      "critical_dew_zone": {"name": "Zona rugiada critica"},
+      "critical_dew_delta": {"name": "Delta rugiada critico"},
+      "critical_dew_state": {"name": "Stato rischio rugiada"},
+      "recommended_action": {"name": "Azione consigliata"},
+      "target_reason": {"name": "Motivo target"},
+      "action_reason": {"name": "Motivo azione"},
+      "critical_room_count": {"name": "Stanze in rischio critico"},
+      "warning_room_count": {"name": "Stanze in attenzione"}
     }
   }
 }
