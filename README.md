@@ -1,5 +1,9 @@
 # HA Radiant Climate Controller
 
+<p align="center">
+  <img src="assets/icon.svg" alt="Radiant Climate Controller" width="160">
+</p>
+
 Custom integration Home Assistant per usare Home Assistant come **centralina climatica radiante predittiva** ed ESPHome come **attuatore/PID valvola miscelatrice**.
 
 ## Obiettivo
@@ -32,13 +36,26 @@ Crea sensori per:
 - temperatura massima casa;
 - stanza più calda;
 - trend temperatura casa;
-- stanza più critica per rugiada;
-- zona rugiada critica;
+- stanza più vicina alla rugiada;
+- zona più vicina alla rugiada;
 - target mandata comfort;
 - target mandata sicuro;
 - target mandata consigliato;
 - azione consigliata;
 - motivo del target e dell'azione.
+
+## Aggiornamenti HACS
+
+Per far vedere a HACS gli aggiornamenti in modo pulito, usare GitHub Releases.
+
+Regola pratica:
+
+1. aggiornare `manifest.json` con la nuova versione;
+2. fare commit e push;
+3. creare una GitHub Release con tag coerente, ad esempio `v0.2.1`;
+4. in HACS usare il controllo aggiornamenti o attendere la scansione automatica.
+
+Solo creare un tag non basta: serve una release GitHub completa.
 
 ## Strategia estate iniziale
 
