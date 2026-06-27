@@ -4,7 +4,7 @@
     "step": {
       "user": {
         "title": "Configura centralina radiante",
-        "description": "La v0.2 usa il modello stanze dell'impianto di Enrico. Serve solo confermare nome e modalità stagionale.",
+        "description": "La v0.3 usa il modello stanze dell'impianto di Enrico e parametri configurabili da UI.",
         "data": {
           "name": "Nome",
           "season_entity": "Entità modalità stagionale"
@@ -38,6 +38,25 @@
       "action_reason": {"name": "Motivo azione"},
       "critical_room_count": {"name": "Stanze in rischio critico"},
       "warning_room_count": {"name": "Stanze in attenzione"}
+    },
+    "number": {
+      "threshold_normal": {"name": "Soglia normale"},
+      "threshold_boost": {"name": "Soglia spinto"},
+      "threshold_recovery": {"name": "Soglia recupero"},
+      "precool_normal_temp": {"name": "Anticipo normale"},
+      "precool_boost_temp": {"name": "Anticipo spinto"},
+      "precool_recovery_temp": {"name": "Anticipo recupero"},
+      "trend_normal": {"name": "Trend normale"},
+      "trend_boost": {"name": "Trend spinto"},
+      "trend_recovery": {"name": "Trend recupero"},
+      "target_maintenance": {"name": "Target mantenimento"},
+      "target_normal": {"name": "Target normale"},
+      "target_boost": {"name": "Target spinto"},
+      "target_recovery": {"name": "Target recupero"},
+      "dew_point_margin": {"name": "Margine rugiada"}
+    },
+    "select": {
+      "manual_state": {"name": "Stato manuale"}
     }
   }
 }
