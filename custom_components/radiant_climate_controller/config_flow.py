@@ -8,13 +8,9 @@ from homeassistant import config_entries
 from homeassistant.const import CONF_NAME
 
 from .const import (
-    CONF_HUMIDITY_ENTITIES,
     CONF_SEASON_ENTITY,
-    CONF_TEMPERATURE_ENTITIES,
-    DEFAULT_HUMIDITY_ENTITIES,
     DEFAULT_NAME,
     DEFAULT_SEASON_ENTITY,
-    DEFAULT_TEMPERATURE_ENTITIES,
     DOMAIN,
 )
 
@@ -35,8 +31,6 @@ class RadiantClimateConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             {
                 vol.Required(CONF_NAME, default=DEFAULT_NAME): str,
                 vol.Required(CONF_SEASON_ENTITY, default=DEFAULT_SEASON_ENTITY): str,
-                vol.Required(CONF_TEMPERATURE_ENTITIES, default=DEFAULT_TEMPERATURE_ENTITIES): str,
-                vol.Required(CONF_HUMIDITY_ENTITIES, default=DEFAULT_HUMIDITY_ENTITIES): str,
             }
         )
 
