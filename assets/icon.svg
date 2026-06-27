@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">Radiant Climate Controller</title>
+  <desc id="desc">Stylized radiant floor climate controller icon with house, wave, snowflake and droplet.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#1f6feb"/>
+      <stop offset="1" stop-color="#00a6a6"/>
+    </linearGradient>
+  </defs>
+  <rect x="32" y="32" width="448" height="448" rx="96" fill="url(#bg)"/>
+  <path d="M128 254 L256 146 L384 254" fill="none" stroke="#fff" stroke-width="28" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M166 238 V376 H346 V238" fill="none" stroke="#fff" stroke-width="24" stroke-linecap="round" stroke-linejoin="round" opacity="0.95"/>
+  <path d="M160 314 C196 286 228 342 256 314 C286 284 320 342 356 314" fill="none" stroke="#fff" stroke-width="18" stroke-linecap="round" opacity="0.9"/>
+  <path d="M160 356 C196 328 228 384 256 356 C286 326 320 384 356 356" fill="none" stroke="#fff" stroke-width="18" stroke-linecap="round" opacity="0.9"/>
+  <g transform="translate(334 142)" fill="none" stroke="#fff" stroke-width="14" stroke-linecap="round" opacity="0.95">
+    <path d="M0 0 V72"/>
+    <path d="M-31 18 L31 54"/>
+    <path d="M31 18 L-31 54"/>
+  </g>
+  <path d="M184 126 C184 126 148 170 148 202 C148 227 164 244 184 244 C204 244 220 227 220 202 C220 170 184 126 184 126 Z" fill="#fff" opacity="0.9"/>
+</svg>
