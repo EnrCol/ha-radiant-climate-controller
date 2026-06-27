@@ -16,6 +16,15 @@ STATE_BOOST = "spinto"
 STATE_RECOVERY = "recupero"
 STATE_UNKNOWN = "sconosciuto"
 
+MANUAL_AUTO = "auto"
+MANUAL_OPTIONS = [
+    MANUAL_AUTO,
+    STATE_MAINTENANCE,
+    STATE_NORMAL,
+    STATE_BOOST,
+    STATE_RECOVERY,
+]
+
 ACTION_IDLE = "mantenimento"
 ACTION_ACTIVE_COOLING = "raffrescamento_attivo"
 ACTION_PRECOOL = "anticipo_raffrescamento"
@@ -36,6 +45,22 @@ ENTITY_STANDBY_RUGIADA = "binary_sensor.standby_rugiada"
 ENTITY_STANDBY_PORTE = "binary_sensor.standby_porte"
 ENTITY_STANDBY_ATTIVO = "binary_sensor.standby_attivo"
 ENTITY_ACS_BLOCK = "binary_sensor.acs_blocco_valvola_miscelatrice"
+
+OPT_MANUAL_STATE = "manual_state"
+OPT_THRESHOLD_NORMAL = "threshold_normal"
+OPT_THRESHOLD_BOOST = "threshold_boost"
+OPT_THRESHOLD_RECOVERY = "threshold_recovery"
+OPT_PRECOOL_NORMAL_TEMP = "precool_normal_temp"
+OPT_PRECOOL_BOOST_TEMP = "precool_boost_temp"
+OPT_PRECOOL_RECOVERY_TEMP = "precool_recovery_temp"
+OPT_TREND_NORMAL = "trend_normal"
+OPT_TREND_BOOST = "trend_boost"
+OPT_TREND_RECOVERY = "trend_recovery"
+OPT_TARGET_MAINTENANCE = "target_maintenance"
+OPT_TARGET_NORMAL = "target_normal"
+OPT_TARGET_BOOST = "target_boost"
+OPT_TARGET_RECOVERY = "target_recovery"
+OPT_DEW_POINT_MARGIN = "dew_point_margin"
 
 DEFAULT_THRESHOLD_NORMAL = 25.2
 DEFAULT_THRESHOLD_BOOST = 25.7
