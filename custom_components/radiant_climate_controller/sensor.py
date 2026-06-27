@@ -101,6 +101,34 @@ SENSORS: tuple[RadiantSensorDescription, ...] = (
         native_unit_of_measurement="°C/h",
     ),
     RadiantSensorDescription(
+        key="thermal_trend_source",
+        translation_key="thermal_trend_source",
+        value_key="thermal_trend_source",
+    ),
+    RadiantSensorDescription(
+        key="thermal_trend_15m_per_hour",
+        translation_key="thermal_trend_15m_per_hour",
+        value_key="thermal_trend_15m_per_hour",
+        native_unit_of_measurement="°C/h",
+    ),
+    RadiantSensorDescription(
+        key="thermal_trend_30m_per_hour",
+        translation_key="thermal_trend_30m_per_hour",
+        value_key="thermal_trend_30m_per_hour",
+        native_unit_of_measurement="°C/h",
+    ),
+    RadiantSensorDescription(
+        key="thermal_trend_60m_per_hour",
+        translation_key="thermal_trend_60m_per_hour",
+        value_key="thermal_trend_60m_per_hour",
+        native_unit_of_measurement="°C/h",
+    ),
+    RadiantSensorDescription(
+        key="thermal_trend_sample_count",
+        translation_key="thermal_trend_sample_count",
+        value_key="thermal_trend_sample_count",
+    ),
+    RadiantSensorDescription(
         key="critical_dew_room",
         translation_key="critical_dew_room",
         value_key="critical_dew_room",
