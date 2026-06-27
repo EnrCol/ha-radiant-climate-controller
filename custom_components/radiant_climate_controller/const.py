@@ -17,6 +17,7 @@ STATE_RECOVERY = "recupero"
 STATE_UNKNOWN = "sconosciuto"
 
 ACTION_IDLE = "mantenimento"
+ACTION_ACTIVE_COOLING = "raffrescamento_attivo"
 ACTION_PRECOOL = "anticipo_raffrescamento"
 ACTION_DEHUMIDIFY = "deumidificare_zona"
 ACTION_LOCAL_PROTECTION = "protezione_locale_stanza"
