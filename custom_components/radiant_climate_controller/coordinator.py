@@ -72,6 +72,7 @@ class RadiantClimateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             hass,
             _LOGGER,
             name=DOMAIN,
+            config_entry=entry,
             update_interval=timedelta(seconds=DEFAULT_SCAN_INTERVAL_SECONDS),
         )
 
