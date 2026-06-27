@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import timedelta
 import logging
 import math
+import time
 from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
@@ -12,10 +13,19 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
 from .const import (
-    CONF_HUMIDITY_ENTITIES,
+    ACTION_ACS_BLOCK,
+    ACTION_DEHUMIDIFY,
+    ACTION_DISABLED,
+    ACTION_DOOR_STANDBY,
+    ACTION_GLOBAL_PROTECTION,
+    ACTION_IDLE,
+    ACTION_LOCAL_PROTECTION,
+    ACTION_PRECOOL,
     CONF_SEASON_ENTITY,
-    CONF_TEMPERATURE_ENTITIES,
     DEFAULT_DEW_POINT_MARGIN,
+    DEFAULT_PRECOOL_BOOST_TEMP,
+    DEFAULT_PRECOOL_NORMAL_TEMP,
+    DEFAULT_PRECOOL_RECOVERY_TEMP,
     DEFAULT_SCAN_INTERVAL_SECONDS,
     DEFAULT_TARGET_BOOST,
     DEFAULT_TARGET_MAINTENANCE,
@@ -24,24 +34,29 @@ from .const import (
     DEFAULT_THRESHOLD_BOOST,
     DEFAULT_THRESHOLD_NORMAL,
     DEFAULT_THRESHOLD_RECOVERY,
+    DEFAULT_TREND_BOOST,
+    DEFAULT_TREND_NORMAL,
+    DEFAULT_TREND_RECOVERY,
     DOMAIN,
+    ENTITY_ACS_BLOCK,
+    ENTITY_DEW_POINT_MARGIN,
+    ENTITY_DEW_POINT_MAX_HOUSE,
+    ENTITY_STANDBY_ATTIVO,
+    ENTITY_STANDBY_PORTE,
+    ENTITY_STANDBY_RUGIADA,
     STATE_BOOST,
     STATE_MAINTENANCE,
     STATE_NORMAL,
     STATE_RECOVERY,
     STATE_UNKNOWN,
 )
+from .rooms import ROOMS, ZONE_DEHUMIDIFIERS
 
 _LOGGER = logging.getLogger(__name__)
 
 
-def _split_entities(raw: str | None) -> list[str]:
-    if not raw:
-        return []
-    return [item.strip() for item in raw.split(",") if item.strip()]
-
-
 def _as_float(value: Any) -> float | None:
+    """Convert a Home Assistant value to float."""
     try:
         if value in (None, "unknown", "unavailable"):
             return None
@@ -51,6 +66,7 @@ def _as_float(value: Any) -> float | None:
 
 
 def _dew_point_celsius(temperature: float, humidity: float) -> float | None:
+    """Calculate dew point with the Magnus formula."""
     if humidity <= 0:
         return None
     a = 17.62
@@ -60,8 +76,14 @@ def _dew_point_celsius(temperature: float, humidity: float) -> float | None:
 
 
 class RadiantClimateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
+    """Coordinator that calculates radiant climate values from HA states."""
+
     def __init__(self, hass: HomeAssistant, entry: ConfigEntry) -> None:
+        """Initialize coordinator."""
         self.entry = entry
+        self._last_temperature: float | None = None
+        self._last_timestamp: float | None = None
+        self._last_trend: float | None = None
         super().__init__(
             hass,
             _LOGGER,
@@ -71,87 +93,250 @@ class RadiantClimateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         )
 
     async def _async_update_data(self) -> dict[str, Any]:
+        """Update calculated data."""
         return self._calculate()
 
-    def _temperature_from_entity(self, entity_id: str) -> float | None:
-        state = self.hass.states.get(entity_id)
-        if state is None:
+    def _state(self, entity_id: str | None) -> str | None:
+        if not entity_id:
             return None
-        current_temperature = _as_float(state.attributes.get("current_temperature"))
-        if current_temperature is not None:
-            return current_temperature
-        return _as_float(state.state)
+        state = self.hass.states.get(entity_id)
+        return state.state if state is not None else None
 
-    def _humidity_from_entity(self, entity_id: str) -> float | None:
-        state = self.hass.states.get(entity_id)
-        if state is None:
-            return None
-        return _as_float(state.state)
+    def _is_on(self, entity_id: str | None) -> bool:
+        return self._state(entity_id) == "on"
+
+    def _float_state(self, entity_id: str | None) -> float | None:
+        return _as_float(self._state(entity_id))
+
+    def _calculate_rooms(self, safety_margin: float) -> dict[str, dict[str, Any]]:
+        rooms: dict[str, dict[str, Any]] = {}
+        for key, cfg in ROOMS.items():
+            temperature = self._float_state(cfg.get("temperature"))
+            humidity = self._float_state(cfg.get("humidity"))
+            dew_point = self._float_state(cfg.get("dew_point"))
+            if dew_point is None and temperature is not None and humidity is not None:
+                dew_point = _dew_point_celsius(temperature, humidity)
+
+            dew_delta = None
+            if temperature is not None and dew_point is not None:
+                dew_delta = temperature - dew_point
+
+            safety_boolean = self._is_on(cfg.get("safety_boolean"))
+            if dew_delta is None:
+                risk = "unknown"
+            elif safety_boolean or dew_delta <= safety_margin:
+                risk = "critico"
+            elif dew_delta <= safety_margin + 1.0:
+                risk = "attenzione"
+            else:
+                risk = "ok"
+
+            rooms[key] = {
+                "key": key,
+                "name": cfg.get("name", key),
+                "zone": cfg.get("zone"),
+                "temperature": temperature,
+                "humidity": humidity,
+                "dew_point": dew_point,
+                "dew_delta": dew_delta,
+                "risk": risk,
+                "climate": cfg.get("climate"),
+                "safety_boolean": safety_boolean,
+            }
+        return rooms
+
+    def _calculate_zone_states(self) -> dict[str, dict[str, Any]]:
+        zones: dict[str, dict[str, Any]] = {}
+        for key, cfg in ZONE_DEHUMIDIFIERS.items():
+            zones[key] = {
+                "key": key,
+                "name": cfg.get("name", key),
+                "request": self._is_on(cfg.get("request")),
+                "consent": self._is_on(cfg.get("consent")),
+                "average_temperature": self._float_state(cfg.get("average_temperature")),
+                "average_humidity": self._float_state(cfg.get("average_humidity")),
+                "humidity_threshold": self._float_state(cfg.get("humidity_threshold")),
+            }
+        return zones
+
+    def _trend_per_hour(self, current_temperature: float | None) -> float | None:
+        now_ts = time.monotonic()
+        if current_temperature is None:
+            return self._last_trend
+        if self._last_temperature is None or self._last_timestamp is None:
+            self._last_temperature = current_temperature
+            self._last_timestamp = now_ts
+            return self._last_trend
+        elapsed = now_ts - self._last_timestamp
+        if elapsed < 60:
+            return self._last_trend
+        trend = (current_temperature - self._last_temperature) / (elapsed / 3600.0)
+        self._last_temperature = current_temperature
+        self._last_timestamp = now_ts
+        self._last_trend = trend
+        return trend
+
+    def _comfort_state_and_target(
+        self, hottest_temp: float | None, trend: float | None
+    ) -> tuple[str, float, str]:
+        if hottest_temp is None:
+            return STATE_UNKNOWN, DEFAULT_TARGET_MAINTENANCE, "temperatura massima casa non disponibile"
+
+        trend_value = trend or 0.0
+        if hottest_temp >= DEFAULT_THRESHOLD_RECOVERY or (
+            hottest_temp >= DEFAULT_PRECOOL_RECOVERY_TEMP and trend_value >= DEFAULT_TREND_RECOVERY
+        ):
+            return (
+                STATE_RECOVERY,
+                DEFAULT_TARGET_RECOVERY,
+                f"recupero: temperatura {hottest_temp:.1f}°C, trend {trend_value:.2f}°C/h",
+            )
+        if hottest_temp >= DEFAULT_THRESHOLD_BOOST or (
+            hottest_temp >= DEFAULT_PRECOOL_BOOST_TEMP and trend_value >= DEFAULT_TREND_BOOST
+        ):
+            return (
+                STATE_BOOST,
+                DEFAULT_TARGET_BOOST,
+                f"spinto: temperatura {hottest_temp:.1f}°C, trend {trend_value:.2f}°C/h",
+            )
+        if hottest_temp >= DEFAULT_THRESHOLD_NORMAL or (
+            hottest_temp >= DEFAULT_PRECOOL_NORMAL_TEMP and trend_value >= DEFAULT_TREND_NORMAL
+        ):
+            return (
+                STATE_NORMAL,
+                DEFAULT_TARGET_NORMAL,
+                f"normale anticipato: temperatura {hottest_temp:.1f}°C, trend {trend_value:.2f}°C/h",
+            )
+        return (
+            STATE_MAINTENANCE,
+            DEFAULT_TARGET_MAINTENANCE,
+            f"mantenimento: temperatura {hottest_temp:.1f}°C, trend {trend_value:.2f}°C/h",
+        )
 
     def _calculate(self) -> dict[str, Any]:
         data = self.entry.data
-
-        temperature_entities = _split_entities(data.get(CONF_TEMPERATURE_ENTITIES))
-        humidity_entities = _split_entities(data.get(CONF_HUMIDITY_ENTITIES))
         season_entity = data.get(CONF_SEASON_ENTITY)
+        season_state = self._state(season_entity)
+        summer_enabled = season_state == "Estate"
 
-        temperatures = [
-            value
-            for entity_id in temperature_entities
-            if (value := self._temperature_from_entity(entity_id)) is not None
+        safety_margin = self._float_state(ENTITY_DEW_POINT_MARGIN) or DEFAULT_DEW_POINT_MARGIN
+        rooms = self._calculate_rooms(safety_margin)
+        zones = self._calculate_zone_states()
+
+        valid_temperatures = [
+            room["temperature"] for room in rooms.values() if room["temperature"] is not None
         ]
-        humidities = [
-            value
-            for entity_id in humidity_entities
-            if (value := self._humidity_from_entity(entity_id)) is not None
+        valid_humidities = [
+            room["humidity"] for room in rooms.values() if room["humidity"] is not None
+        ]
+        valid_dew_points = [
+            room["dew_point"] for room in rooms.values() if room["dew_point"] is not None
+        ]
+        valid_deltas = [
+            room for room in rooms.values() if room["dew_delta"] is not None
         ]
 
-        zone_temperature = max(temperatures) if temperatures else None
-        zone_humidity = max(humidities) if humidities else None
-        dew_point = (
-            _dew_point_celsius(zone_temperature, zone_humidity)
-            if zone_temperature is not None and zone_humidity is not None
-            else None
+        hottest_room = max(
+            rooms.values(), key=lambda item: item["temperature"] if item["temperature"] is not None else -999
+        ) if valid_temperatures else None
+        critical_room = min(valid_deltas, key=lambda item: item["dew_delta"]) if valid_deltas else None
+
+        zone_temperature = max(valid_temperatures) if valid_temperatures else None
+        zone_humidity = max(valid_humidities) if valid_humidities else None
+        house_dew_point = self._float_state(ENTITY_DEW_POINT_MAX_HOUSE)
+        if house_dew_point is None and valid_dew_points:
+            house_dew_point = max(valid_dew_points)
+
+        trend = self._trend_per_hour(zone_temperature)
+        climate_state, target_requested, target_reason = self._comfort_state_and_target(
+            zone_temperature, trend
         )
 
-        if zone_temperature is None:
-            climate_state = STATE_UNKNOWN
-        elif zone_temperature >= DEFAULT_THRESHOLD_RECOVERY:
-            climate_state = STATE_RECOVERY
-        elif zone_temperature >= DEFAULT_THRESHOLD_BOOST:
-            climate_state = STATE_BOOST
-        elif zone_temperature >= DEFAULT_THRESHOLD_NORMAL:
-            climate_state = STATE_NORMAL
-        else:
-            climate_state = STATE_MAINTENANCE
-
-        if climate_state == STATE_RECOVERY:
-            target_requested = DEFAULT_TARGET_RECOVERY
-        elif climate_state == STATE_BOOST:
-            target_requested = DEFAULT_TARGET_BOOST
-        elif climate_state == STATE_NORMAL:
-            target_requested = DEFAULT_TARGET_NORMAL
-        else:
-            target_requested = DEFAULT_TARGET_MAINTENANCE
-
-        target_safe = dew_point + DEFAULT_DEW_POINT_MARGIN if dew_point is not None else 19.0
-
-        season_state_obj = self.hass.states.get(season_entity) if season_entity else None
-        season_state = season_state_obj.state if season_state_obj is not None else None
-        summer_enabled = season_state == "Estate"
+        target_safe = house_dew_point + safety_margin if house_dew_point is not None else 19.0
         target_final = max(target_requested, target_safe) if summer_enabled else None
+
+        acs_block = self._is_on(ENTITY_ACS_BLOCK)
+        standby_porte = self._is_on(ENTITY_STANDBY_PORTE)
+        standby_rugiada = self._is_on(ENTITY_STANDBY_RUGIADA)
+        standby_attivo = self._is_on(ENTITY_STANDBY_ATTIVO)
+
+        critical_rooms = [room for room in rooms.values() if room["risk"] == "critico"]
+        warning_rooms = [room for room in rooms.values() if room["risk"] == "attenzione"]
+        critical_zones = {room["zone"] for room in critical_rooms if room.get("zone")}
+
+        recommended_action = ACTION_IDLE
+        if not summer_enabled:
+            recommended_action = ACTION_DISABLED
+        elif acs_block:
+            recommended_action = ACTION_ACS_BLOCK
+        elif standby_porte:
+            recommended_action = ACTION_DOOR_STANDBY
+        elif len(critical_rooms) >= 2 or len(critical_zones) >= 2 or standby_rugiada:
+            recommended_action = ACTION_GLOBAL_PROTECTION
+        elif critical_room is not None and critical_room["risk"] == "critico":
+            zone = critical_room.get("zone")
+            if zone and not zones.get(zone, {}).get("request"):
+                recommended_action = ACTION_DEHUMIDIFY
+            else:
+                recommended_action = ACTION_LOCAL_PROTECTION
+        elif climate_state in (STATE_NORMAL, STATE_BOOST, STATE_RECOVERY):
+            recommended_action = ACTION_PRECOOL
+
+        if critical_room is not None:
+            dew_delta = critical_room["dew_delta"]
+            critical_room_name = critical_room["name"]
+            critical_room_zone = critical_room["zone"]
+        else:
+            dew_delta = None
+            critical_room_name = None
+            critical_room_zone = None
+
+        action_reason = target_reason
+        if recommended_action == ACTION_GLOBAL_PROTECTION:
+            action_reason = "rischio rugiada diffuso o standby rugiada attivo: protezione globale mandata"
+        elif recommended_action == ACTION_LOCAL_PROTECTION and critical_room_name:
+            action_reason = f"rischio rugiada localizzato in {critical_room_name}: preferire azione locale/testina"
+        elif recommended_action == ACTION_DEHUMIDIFY and critical_room_zone:
+            action_reason = f"rischio rugiada in zona {critical_room_zone}: priorità deumidificazione zona"
+        elif recommended_action == ACTION_ACS_BLOCK:
+            action_reason = "ACS attiva o blocco miscelatrice: non usare il target come comando utile"
+        elif recommended_action == ACTION_DOOR_STANDBY:
+            action_reason = "porte/finestre in standby: evitare raffrescamento attivo"
+        elif recommended_action == ACTION_DISABLED:
+            action_reason = "modalità stagionale diversa da Estate"
 
         return {
             "zone_temperature": zone_temperature,
             "zone_humidity": zone_humidity,
-            "dew_point": dew_point,
+            "dew_point": house_dew_point,
             "climate_state": climate_state,
             "target_requested": target_requested,
             "target_safe": target_safe,
             "target_final": target_final,
-            "dew_point_delta": target_final - dew_point
-            if target_final is not None and dew_point is not None
+            "dew_point_delta": target_final - house_dew_point
+            if target_final is not None and house_dew_point is not None
             else None,
             "summer_enabled": summer_enabled,
             "season_state": season_state,
+            "hottest_room": hottest_room["name"] if hottest_room else None,
+            "hottest_room_temperature": hottest_room["temperature"] if hottest_room else None,
+            "thermal_trend_per_hour": trend,
+            "critical_dew_room": critical_room_name,
+            "critical_dew_zone": critical_room_zone,
+            "critical_dew_delta": dew_delta,
+            "critical_dew_state": critical_room["risk"] if critical_room else "unknown",
+            "critical_room_count": len(critical_rooms),
+            "warning_room_count": len(warning_rooms),
+            "recommended_action": recommended_action,
+            "target_reason": target_reason,
+            "action_reason": action_reason,
+            "zone_giorno_dehumidification_request": zones.get("giorno", {}).get("request"),
+            "zone_notte_dehumidification_request": zones.get("notte", {}).get("request"),
+            "zone_giorno_dehumidifier_on": zones.get("giorno", {}).get("consent"),
+            "zone_notte_dehumidifier_on": zones.get("notte", {}).get("consent"),
+            "standby_rugiada": standby_rugiada,
+            "standby_porte": standby_porte,
+            "standby_attivo": standby_attivo,
+            "acs_block": acs_block,
+            "room_count": len(rooms),
         }
