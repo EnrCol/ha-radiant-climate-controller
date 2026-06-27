@@ -18,9 +18,20 @@ stanze + trend + rugiada + deumidifica + standby
 → ESPHome PID valvola miscelatrice
 ```
 
-## Versione 0.2.0
+## Versione 0.3.0
 
-La v0.2.0 è una base di osservazione predittiva. Non comanda ancora termostati, testine o deumidificatori.
+La v0.3.0 resta osservativa, ma aggiunge la configurazione da UI.
+
+Ora puoi modificare da Home Assistant:
+
+- soglie di ingresso in normale/spinto/recupero;
+- soglie di anticipo normale/spinto/recupero;
+- trend minimo per anticipo;
+- target mandata mantenimento/normale/spinto/recupero;
+- margine punto rugiada;
+- stato manuale `auto / mantenimento / normale / spinto / recupero`.
+
+## Modello impianto
 
 Legge il modello reale dell'impianto:
 
@@ -51,9 +62,10 @@ Per far vedere a HACS gli aggiornamenti in modo pulito, usare GitHub Releases.
 Regola pratica:
 
 1. aggiornare `manifest.json` con la nuova versione;
-2. fare commit e push;
-3. creare una GitHub Release con tag coerente, ad esempio `v0.2.1`;
-4. in HACS usare il controllo aggiornamenti o attendere la scansione automatica.
+2. aggiornare `CHANGELOG.md`;
+3. fare commit e push;
+4. creare una GitHub Release con tag coerente, ad esempio `v0.3.0`;
+5. in HACS usare il controllo aggiornamenti o attendere la scansione automatica.
 
 Solo creare un tag non basta: serve una release GitHub completa.
 
@@ -72,7 +84,8 @@ Il target consigliato è protetto da rugiada:
 target_consigliato = max(target_comfort, punto_rugiada_massimo_casa + margine)
 ```
 
-Il margine viene letto da:
+Il margine viene letto prima dal number dell'integrazione, se modificato da UI.
+Se non è stato modificato, resta valido l'helper esistente:
 
 ```text
 input_number.rugiada_temperatura_delta_sicurezza
