@@ -14,6 +14,7 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
 from .const import (
     ACTION_ACS_BLOCK,
+    ACTION_ACTIVE_COOLING,
     ACTION_DEHUMIDIFY,
     ACTION_DISABLED,
     ACTION_DOOR_STANDBY,
@@ -178,39 +179,72 @@ class RadiantClimateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
     def _comfort_state_and_target(
         self, hottest_temp: float | None, trend: float | None
-    ) -> tuple[str, float, str]:
+    ) -> tuple[str, float, str, bool]:
         if hottest_temp is None:
-            return STATE_UNKNOWN, DEFAULT_TARGET_MAINTENANCE, "temperatura massima casa non disponibile"
+            return (
+                STATE_UNKNOWN,
+                DEFAULT_TARGET_MAINTENANCE,
+                "temperatura massima casa non disponibile",
+                False,
+            )
 
-        trend_value = trend or 0.0
-        if hottest_temp >= DEFAULT_THRESHOLD_RECOVERY or (
-            hottest_temp >= DEFAULT_PRECOOL_RECOVERY_TEMP and trend_value >= DEFAULT_TREND_RECOVERY
-        ):
+        if trend is None:
+            trend_value = 0.0
+            trend_text = "trend non ancora disponibile"
+        else:
+            trend_value = trend
+            trend_text = f"trend {trend_value:.2f}°C/h"
+
+        if hottest_temp >= DEFAULT_THRESHOLD_RECOVERY:
             return (
                 STATE_RECOVERY,
                 DEFAULT_TARGET_RECOVERY,
-                f"recupero: temperatura {hottest_temp:.1f}°C, trend {trend_value:.2f}°C/h",
+                f"recupero: temperatura {hottest_temp:.1f}°C, {trend_text}",
+                False,
             )
-        if hottest_temp >= DEFAULT_THRESHOLD_BOOST or (
-            hottest_temp >= DEFAULT_PRECOOL_BOOST_TEMP and trend_value >= DEFAULT_TREND_BOOST
-        ):
+        if hottest_temp >= DEFAULT_PRECOOL_RECOVERY_TEMP and trend_value >= DEFAULT_TREND_RECOVERY:
+            return (
+                STATE_RECOVERY,
+                DEFAULT_TARGET_RECOVERY,
+                f"recupero anticipato: temperatura {hottest_temp:.1f}°C, {trend_text}",
+                True,
+            )
+
+        if hottest_temp >= DEFAULT_THRESHOLD_BOOST:
             return (
                 STATE_BOOST,
                 DEFAULT_TARGET_BOOST,
-                f"spinto: temperatura {hottest_temp:.1f}°C, trend {trend_value:.2f}°C/h",
+                f"spinto: temperatura {hottest_temp:.1f}°C, {trend_text}",
+                False,
             )
-        if hottest_temp >= DEFAULT_THRESHOLD_NORMAL or (
-            hottest_temp >= DEFAULT_PRECOOL_NORMAL_TEMP and trend_value >= DEFAULT_TREND_NORMAL
-        ):
+        if hottest_temp >= DEFAULT_PRECOOL_BOOST_TEMP and trend_value >= DEFAULT_TREND_BOOST:
+            return (
+                STATE_BOOST,
+                DEFAULT_TARGET_BOOST,
+                f"spinto anticipato: temperatura {hottest_temp:.1f}°C, {trend_text}",
+                True,
+            )
+
+        if hottest_temp >= DEFAULT_THRESHOLD_NORMAL:
             return (
                 STATE_NORMAL,
                 DEFAULT_TARGET_NORMAL,
-                f"normale anticipato: temperatura {hottest_temp:.1f}°C, trend {trend_value:.2f}°C/h",
+                f"normale: temperatura {hottest_temp:.1f}°C, {trend_text}",
+                False,
             )
+        if hottest_temp >= DEFAULT_PRECOOL_NORMAL_TEMP and trend_value >= DEFAULT_TREND_NORMAL:
+            return (
+                STATE_NORMAL,
+                DEFAULT_TARGET_NORMAL,
+                f"normale anticipato: temperatura {hottest_temp:.1f}°C, {trend_text}",
+                True,
+            )
+
         return (
             STATE_MAINTENANCE,
             DEFAULT_TARGET_MAINTENANCE,
-            f"mantenimento: temperatura {hottest_temp:.1f}°C, trend {trend_value:.2f}°C/h",
+            f"mantenimento: temperatura {hottest_temp:.1f}°C, {trend_text}",
+            False,
         )
 
     def _calculate(self) -> dict[str, Any]:
@@ -236,10 +270,15 @@ class RadiantClimateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             room for room in rooms.values() if room["dew_delta"] is not None
         ]
 
-        hottest_room = max(
-            rooms.values(), key=lambda item: item["temperature"] if item["temperature"] is not None else -999
-        ) if valid_temperatures else None
-        critical_room = min(valid_deltas, key=lambda item: item["dew_delta"]) if valid_deltas else None
+        hottest_room = (
+            max(
+                rooms.values(),
+                key=lambda item: item["temperature"] if item["temperature"] is not None else -999,
+            )
+            if valid_temperatures
+            else None
+        )
+        nearest_dew_room = min(valid_deltas, key=lambda item: item["dew_delta"]) if valid_deltas else None
 
         zone_temperature = max(valid_temperatures) if valid_temperatures else None
         zone_humidity = max(valid_humidities) if valid_humidities else None
@@ -248,7 +287,7 @@ class RadiantClimateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             house_dew_point = max(valid_dew_points)
 
         trend = self._trend_per_hour(zone_temperature)
-        climate_state, target_requested, target_reason = self._comfort_state_and_target(
+        climate_state, target_requested, target_reason, predictive_trigger = self._comfort_state_and_target(
             zone_temperature, trend
         )
 
@@ -273,37 +312,43 @@ class RadiantClimateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             recommended_action = ACTION_DOOR_STANDBY
         elif len(critical_rooms) >= 2 or len(critical_zones) >= 2 or standby_rugiada:
             recommended_action = ACTION_GLOBAL_PROTECTION
-        elif critical_room is not None and critical_room["risk"] == "critico":
-            zone = critical_room.get("zone")
+        elif nearest_dew_room is not None and nearest_dew_room["risk"] == "critico":
+            zone = nearest_dew_room.get("zone")
             if zone and not zones.get(zone, {}).get("request"):
                 recommended_action = ACTION_DEHUMIDIFY
             else:
                 recommended_action = ACTION_LOCAL_PROTECTION
         elif climate_state in (STATE_NORMAL, STATE_BOOST, STATE_RECOVERY):
-            recommended_action = ACTION_PRECOOL
+            recommended_action = ACTION_PRECOOL if predictive_trigger else ACTION_ACTIVE_COOLING
 
-        if critical_room is not None:
-            dew_delta = critical_room["dew_delta"]
-            critical_room_name = critical_room["name"]
-            critical_room_zone = critical_room["zone"]
+        if nearest_dew_room is not None:
+            dew_delta = nearest_dew_room["dew_delta"]
+            nearest_dew_room_name = nearest_dew_room["name"]
+            nearest_dew_room_zone = nearest_dew_room["zone"]
+            nearest_dew_state = nearest_dew_room["risk"]
         else:
             dew_delta = None
-            critical_room_name = None
-            critical_room_zone = None
+            nearest_dew_room_name = None
+            nearest_dew_room_zone = None
+            nearest_dew_state = "unknown"
 
         action_reason = target_reason
         if recommended_action == ACTION_GLOBAL_PROTECTION:
             action_reason = "rischio rugiada diffuso o standby rugiada attivo: protezione globale mandata"
-        elif recommended_action == ACTION_LOCAL_PROTECTION and critical_room_name:
-            action_reason = f"rischio rugiada localizzato in {critical_room_name}: preferire azione locale/testina"
-        elif recommended_action == ACTION_DEHUMIDIFY and critical_room_zone:
-            action_reason = f"rischio rugiada in zona {critical_room_zone}: priorità deumidificazione zona"
+        elif recommended_action == ACTION_LOCAL_PROTECTION and nearest_dew_room_name:
+            action_reason = f"rischio rugiada localizzato in {nearest_dew_room_name}: preferire azione locale/testina"
+        elif recommended_action == ACTION_DEHUMIDIFY and nearest_dew_room_zone:
+            action_reason = f"rischio rugiada in zona {nearest_dew_room_zone}: priorità deumidificazione zona"
         elif recommended_action == ACTION_ACS_BLOCK:
             action_reason = "ACS attiva o blocco miscelatrice: non usare il target come comando utile"
         elif recommended_action == ACTION_DOOR_STANDBY:
             action_reason = "porte/finestre in standby: evitare raffrescamento attivo"
         elif recommended_action == ACTION_DISABLED:
             action_reason = "modalità stagionale diversa da Estate"
+        elif recommended_action == ACTION_ACTIVE_COOLING:
+            action_reason = f"raffrescamento attivo: {target_reason}"
+        elif recommended_action == ACTION_PRECOOL:
+            action_reason = f"anticipo raffrescamento: {target_reason}"
 
         return {
             "zone_temperature": zone_temperature,
@@ -321,10 +366,10 @@ class RadiantClimateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             "hottest_room": hottest_room["name"] if hottest_room else None,
             "hottest_room_temperature": hottest_room["temperature"] if hottest_room else None,
             "thermal_trend_per_hour": trend,
-            "critical_dew_room": critical_room_name,
-            "critical_dew_zone": critical_room_zone,
+            "critical_dew_room": nearest_dew_room_name,
+            "critical_dew_zone": nearest_dew_room_zone,
             "critical_dew_delta": dew_delta,
-            "critical_dew_state": critical_room["risk"] if critical_room else "unknown",
+            "critical_dew_state": nearest_dew_state,
             "critical_room_count": len(critical_rooms),
             "warning_room_count": len(warning_rooms),
             "recommended_action": recommended_action,
