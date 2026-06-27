@@ -1,6 +1,5 @@
 {
   "name": "Radiant Climate Controller",
   "render_readme": true,
-  "domains": ["sensor", "number", "select"],
   "homeassistant": "2025.1.0"
 }
