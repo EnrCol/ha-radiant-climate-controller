@@ -1,5 +1,32 @@
 # Changelog
 
+## [0.3.0] - 2026-06-27
+
+### Added
+
+- Aggiunte entità `number` per configurare da UI:
+  - soglie stato normale/spinto/recupero;
+  - soglie anticipo normale/spinto/recupero;
+  - trend minimo normale/spinto/recupero;
+  - target mandata mantenimento/normale/spinto/recupero;
+  - margine punto rugiada.
+- Aggiunta entità `select` per forzare manualmente lo stato radiante:
+  - auto;
+  - mantenimento;
+  - normale;
+  - spinto;
+  - recupero.
+- I valori modificati da UI vengono salvati nelle opzioni della config entry.
+
+### Changed
+
+- Il coordinator usa i parametri configurati da UI invece dei soli default hardcoded.
+- `hacs.json` dichiara anche i domini `number` e `select`.
+
+### Notes
+
+La centralina resta osservativa: la v0.3 non comanda ancora ESPHome, termostati, testine o deumidificatori.
+
 ## [0.2.1] - 2026-06-27
 
 ### Changed
