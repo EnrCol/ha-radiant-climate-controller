@@ -9,7 +9,7 @@ from homeassistant.core import HomeAssistant
 from .const import DATA_COORDINATOR, DOMAIN
 from .coordinator import RadiantClimateCoordinator
 
-PLATFORMS: list[Platform] = [Platform.SENSOR]
+PLATFORMS: list[Platform] = [Platform.SENSOR, Platform.NUMBER, Platform.SELECT]
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
