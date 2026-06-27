@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
 
 from homeassistant.components.select import SelectEntity, SelectEntityDescription
 from homeassistant.config_entries import ConfigEntry
@@ -35,7 +34,6 @@ SELECTS: tuple[RadiantSelectDescription, ...] = (
         translation_key="manual_state",
         option_key=OPT_MANUAL_STATE,
         default_value=MANUAL_AUTO,
-        options=MANUAL_OPTIONS,
     ),
 )
 
@@ -79,7 +77,7 @@ class RadiantClimateSelect(CoordinatorEntity[RadiantClimateCoordinator], SelectE
     @property
     def options(self) -> list[str]:
         """Return available options."""
-        return list(self.entity_description.options or [])
+        return list(MANUAL_OPTIONS)
 
     @property
     def current_option(self) -> str:
