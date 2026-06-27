@@ -45,6 +45,22 @@ from .const import (
     ENTITY_STANDBY_ATTIVO,
     ENTITY_STANDBY_PORTE,
     ENTITY_STANDBY_RUGIADA,
+    MANUAL_AUTO,
+    OPT_DEW_POINT_MARGIN,
+    OPT_MANUAL_STATE,
+    OPT_PRECOOL_BOOST_TEMP,
+    OPT_PRECOOL_NORMAL_TEMP,
+    OPT_PRECOOL_RECOVERY_TEMP,
+    OPT_TARGET_BOOST,
+    OPT_TARGET_MAINTENANCE,
+    OPT_TARGET_NORMAL,
+    OPT_TARGET_RECOVERY,
+    OPT_THRESHOLD_BOOST,
+    OPT_THRESHOLD_NORMAL,
+    OPT_THRESHOLD_RECOVERY,
+    OPT_TREND_BOOST,
+    OPT_TREND_NORMAL,
+    OPT_TREND_RECOVERY,
     STATE_BOOST,
     STATE_MAINTENANCE,
     STATE_NORMAL,
@@ -97,6 +113,17 @@ class RadiantClimateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         """Update calculated data."""
         return self._calculate()
 
+    def setting(self, key: str, default: Any) -> Any:
+        """Return an integration option with fallback."""
+        return self.entry.options.get(key, default)
+
+    async def async_set_option(self, key: str, value: Any) -> None:
+        """Persist one option and refresh calculated data."""
+        options = dict(self.entry.options)
+        options[key] = value
+        self.hass.config_entries.async_update_entry(self.entry, options=options)
+        await self.async_request_refresh()
+
     def _state(self, entity_id: str | None) -> str | None:
         if not entity_id:
             return None
@@ -108,6 +135,26 @@ class RadiantClimateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
     def _float_state(self, entity_id: str | None) -> float | None:
         return _as_float(self._state(entity_id))
+
+    def _safety_margin(self) -> float:
+        """Return dew point safety margin.
+
+        If the integration number is changed, it overrides the existing HA helper.
+        Otherwise the existing HA helper remains the source of truth.
+        """
+        if OPT_DEW_POINT_MARGIN in self.entry.options:
+            return float(self.entry.options[OPT_DEW_POINT_MARGIN])
+        return self._float_state(ENTITY_DEW_POINT_MARGIN) or DEFAULT_DEW_POINT_MARGIN
+
+    def _target_for_state(self, state: str) -> float:
+        """Return configured target supply temperature for a radiant state."""
+        if state == STATE_RECOVERY:
+            return float(self.setting(OPT_TARGET_RECOVERY, DEFAULT_TARGET_RECOVERY))
+        if state == STATE_BOOST:
+            return float(self.setting(OPT_TARGET_BOOST, DEFAULT_TARGET_BOOST))
+        if state == STATE_NORMAL:
+            return float(self.setting(OPT_TARGET_NORMAL, DEFAULT_TARGET_NORMAL))
+        return float(self.setting(OPT_TARGET_MAINTENANCE, DEFAULT_TARGET_MAINTENANCE))
 
     def _calculate_rooms(self, safety_margin: float) -> dict[str, dict[str, Any]]:
         rooms: dict[str, dict[str, Any]] = {}
@@ -180,10 +227,15 @@ class RadiantClimateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     def _comfort_state_and_target(
         self, hottest_temp: float | None, trend: float | None
     ) -> tuple[str, float, str, bool]:
+        manual_state = self.setting(OPT_MANUAL_STATE, MANUAL_AUTO)
+        if manual_state != MANUAL_AUTO:
+            target = self._target_for_state(manual_state)
+            return manual_state, target, f"stato radiante forzato manualmente: {manual_state}", False
+
         if hottest_temp is None:
             return (
                 STATE_UNKNOWN,
-                DEFAULT_TARGET_MAINTENANCE,
+                self._target_for_state(STATE_MAINTENANCE),
                 "temperatura massima casa non disponibile",
                 False,
             )
@@ -195,54 +247,64 @@ class RadiantClimateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             trend_value = trend
             trend_text = f"trend {trend_value:.2f}°C/h"
 
-        if hottest_temp >= DEFAULT_THRESHOLD_RECOVERY:
+        threshold_recovery = float(self.setting(OPT_THRESHOLD_RECOVERY, DEFAULT_THRESHOLD_RECOVERY))
+        threshold_boost = float(self.setting(OPT_THRESHOLD_BOOST, DEFAULT_THRESHOLD_BOOST))
+        threshold_normal = float(self.setting(OPT_THRESHOLD_NORMAL, DEFAULT_THRESHOLD_NORMAL))
+        precool_recovery = float(self.setting(OPT_PRECOOL_RECOVERY_TEMP, DEFAULT_PRECOOL_RECOVERY_TEMP))
+        precool_boost = float(self.setting(OPT_PRECOOL_BOOST_TEMP, DEFAULT_PRECOOL_BOOST_TEMP))
+        precool_normal = float(self.setting(OPT_PRECOOL_NORMAL_TEMP, DEFAULT_PRECOOL_NORMAL_TEMP))
+        trend_recovery = float(self.setting(OPT_TREND_RECOVERY, DEFAULT_TREND_RECOVERY))
+        trend_boost = float(self.setting(OPT_TREND_BOOST, DEFAULT_TREND_BOOST))
+        trend_normal = float(self.setting(OPT_TREND_NORMAL, DEFAULT_TREND_NORMAL))
+
+        if hottest_temp >= threshold_recovery:
             return (
                 STATE_RECOVERY,
-                DEFAULT_TARGET_RECOVERY,
+                self._target_for_state(STATE_RECOVERY),
                 f"recupero: temperatura {hottest_temp:.1f}°C, {trend_text}",
                 False,
             )
-        if hottest_temp >= DEFAULT_PRECOOL_RECOVERY_TEMP and trend_value >= DEFAULT_TREND_RECOVERY:
+        if hottest_temp >= precool_recovery and trend_value >= trend_recovery:
             return (
                 STATE_RECOVERY,
-                DEFAULT_TARGET_RECOVERY,
+                self._target_for_state(STATE_RECOVERY),
                 f"recupero anticipato: temperatura {hottest_temp:.1f}°C, {trend_text}",
                 True,
             )
 
-        if hottest_temp >= DEFAULT_THRESHOLD_BOOST:
+        if hottest_temp >= threshold_boost:
             return (
                 STATE_BOOST,
-                DEFAULT_TARGET_BOOST,
+                self._target_for_state(STATE_BOOST),
                 f"spinto: temperatura {hottest_temp:.1f}°C, {trend_text}",
                 False,
             )
-        if hottest_temp >= DEFAULT_PRECOOL_BOOST_TEMP and trend_value >= DEFAULT_TREND_BOOST:
+        if hottest_temp >= precool_boost and trend_value >= trend_boost:
             return (
                 STATE_BOOST,
-                DEFAULT_TARGET_BOOST,
+                self._target_for_state(STATE_BOOST),
                 f"spinto anticipato: temperatura {hottest_temp:.1f}°C, {trend_text}",
                 True,
             )
 
-        if hottest_temp >= DEFAULT_THRESHOLD_NORMAL:
+        if hottest_temp >= threshold_normal:
             return (
                 STATE_NORMAL,
-                DEFAULT_TARGET_NORMAL,
+                self._target_for_state(STATE_NORMAL),
                 f"normale: temperatura {hottest_temp:.1f}°C, {trend_text}",
                 False,
             )
-        if hottest_temp >= DEFAULT_PRECOOL_NORMAL_TEMP and trend_value >= DEFAULT_TREND_NORMAL:
+        if hottest_temp >= precool_normal and trend_value >= trend_normal:
             return (
                 STATE_NORMAL,
-                DEFAULT_TARGET_NORMAL,
+                self._target_for_state(STATE_NORMAL),
                 f"normale anticipato: temperatura {hottest_temp:.1f}°C, {trend_text}",
                 True,
             )
 
         return (
             STATE_MAINTENANCE,
-            DEFAULT_TARGET_MAINTENANCE,
+            self._target_for_state(STATE_MAINTENANCE),
             f"mantenimento: temperatura {hottest_temp:.1f}°C, {trend_text}",
             False,
         )
@@ -253,7 +315,7 @@ class RadiantClimateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         season_state = self._state(season_entity)
         summer_enabled = season_state == "Estate"
 
-        safety_margin = self._float_state(ENTITY_DEW_POINT_MARGIN) or DEFAULT_DEW_POINT_MARGIN
+        safety_margin = self._safety_margin()
         rooms = self._calculate_rooms(safety_margin)
         zones = self._calculate_zone_states()
 
@@ -384,4 +446,6 @@ class RadiantClimateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             "standby_attivo": standby_attivo,
             "acs_block": acs_block,
             "room_count": len(rooms),
+            "manual_state": self.setting(OPT_MANUAL_STATE, MANUAL_AUTO),
+            "safety_margin": safety_margin,
         }
