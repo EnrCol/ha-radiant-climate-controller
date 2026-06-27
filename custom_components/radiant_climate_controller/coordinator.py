@@ -71,6 +71,14 @@ from .rooms import ROOMS, ZONE_DEHUMIDIFIERS
 
 _LOGGER = logging.getLogger(__name__)
 
+TREND_HISTORY_RETENTION_SECONDS = 7200
+TREND_MIN_COVERAGE = 0.8
+TREND_WINDOWS_SECONDS = {
+    "15m": 15 * 60,
+    "30m": 30 * 60,
+    "60m": 60 * 60,
+}
+
 
 def _as_float(value: Any) -> float | None:
     """Convert a Home Assistant value to float."""
@@ -98,9 +106,7 @@ class RadiantClimateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     def __init__(self, hass: HomeAssistant, entry: ConfigEntry) -> None:
         """Initialize coordinator."""
         self.entry = entry
-        self._last_temperature: float | None = None
-        self._last_timestamp: float | None = None
-        self._last_trend: float | None = None
+        self._temperature_history: list[tuple[float, float]] = []
         super().__init__(
             hass,
             _LOGGER,
@@ -207,25 +213,81 @@ class RadiantClimateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             }
         return zones
 
-    def _trend_per_hour(self, current_temperature: float | None) -> float | None:
+    def _record_temperature_sample(self, temperature: float | None, now_ts: float) -> None:
+        """Store a rolling history of max house temperature."""
+        if temperature is None:
+            return
+
+        if self._temperature_history:
+            last_ts, last_temp = self._temperature_history[-1]
+            if now_ts - last_ts < DEFAULT_SCAN_INTERVAL_SECONDS * 0.8 and last_temp == temperature:
+                return
+
+        self._temperature_history.append((now_ts, temperature))
+        cutoff = now_ts - TREND_HISTORY_RETENTION_SECONDS
+        self._temperature_history = [
+            (sample_ts, sample_temp)
+            for sample_ts, sample_temp in self._temperature_history
+            if sample_ts >= cutoff
+        ]
+
+    def _trend_from_history(self, current_temperature: float | None, window_seconds: int, now_ts: float) -> float | None:
+        """Calculate filtered trend over a time window in °C/h."""
+        if current_temperature is None or not self._temperature_history:
+            return None
+
+        target_ts = now_ts - window_seconds
+        baseline: tuple[float, float] | None = None
+
+        for sample in reversed(self._temperature_history):
+            sample_ts, _sample_temp = sample
+            if sample_ts <= target_ts:
+                baseline = sample
+                break
+
+        if baseline is None:
+            oldest = self._temperature_history[0]
+            elapsed_from_oldest = now_ts - oldest[0]
+            if elapsed_from_oldest < window_seconds * TREND_MIN_COVERAGE:
+                return None
+            baseline = oldest
+
+        baseline_ts, baseline_temp = baseline
+        elapsed = now_ts - baseline_ts
+        if elapsed <= 0:
+            return None
+        return (current_temperature - baseline_temp) / (elapsed / 3600.0)
+
+    def _calculate_trends(self, current_temperature: float | None) -> dict[str, Any]:
+        """Return trend values and the trend selected for control logic."""
         now_ts = time.monotonic()
-        if current_temperature is None:
-            return self._last_trend
-        if self._last_temperature is None or self._last_timestamp is None:
-            self._last_temperature = current_temperature
-            self._last_timestamp = now_ts
-            return self._last_trend
-        elapsed = now_ts - self._last_timestamp
-        if elapsed < 60:
-            return self._last_trend
-        trend = (current_temperature - self._last_temperature) / (elapsed / 3600.0)
-        self._last_temperature = current_temperature
-        self._last_timestamp = now_ts
-        self._last_trend = trend
-        return trend
+        self._record_temperature_sample(current_temperature, now_ts)
+
+        trend_15m = self._trend_from_history(current_temperature, TREND_WINDOWS_SECONDS["15m"], now_ts)
+        trend_30m = self._trend_from_history(current_temperature, TREND_WINDOWS_SECONDS["30m"], now_ts)
+        trend_60m = self._trend_from_history(current_temperature, TREND_WINDOWS_SECONDS["60m"], now_ts)
+
+        if trend_30m is not None:
+            trend_used = trend_30m
+            trend_source = "30m"
+        elif trend_15m is not None:
+            trend_used = trend_15m
+            trend_source = "15m"
+        else:
+            trend_used = None
+            trend_source = "non_disponibile"
+
+        return {
+            "trend_used": trend_used,
+            "trend_source": trend_source,
+            "trend_15m": trend_15m,
+            "trend_30m": trend_30m,
+            "trend_60m": trend_60m,
+            "trend_sample_count": len(self._temperature_history),
+        }
 
     def _comfort_state_and_target(
-        self, hottest_temp: float | None, trend: float | None
+        self, hottest_temp: float | None, trend: float | None, trend_source: str | None
     ) -> tuple[str, float, str, bool]:
         manual_state = self.setting(OPT_MANUAL_STATE, MANUAL_AUTO)
         if manual_state != MANUAL_AUTO:
@@ -242,10 +304,10 @@ class RadiantClimateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
         if trend is None:
             trend_value = 0.0
-            trend_text = "trend non ancora disponibile"
+            trend_text = "trend filtrato non ancora disponibile"
         else:
             trend_value = trend
-            trend_text = f"trend {trend_value:.2f}°C/h"
+            trend_text = f"trend {trend_source} {trend_value:.2f}°C/h"
 
         threshold_recovery = float(self.setting(OPT_THRESHOLD_RECOVERY, DEFAULT_THRESHOLD_RECOVERY))
         threshold_boost = float(self.setting(OPT_THRESHOLD_BOOST, DEFAULT_THRESHOLD_BOOST))
@@ -348,9 +410,11 @@ class RadiantClimateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         if house_dew_point is None and valid_dew_points:
             house_dew_point = max(valid_dew_points)
 
-        trend = self._trend_per_hour(zone_temperature)
+        trends = self._calculate_trends(zone_temperature)
+        trend = trends["trend_used"]
+        trend_source = trends["trend_source"]
         climate_state, target_requested, target_reason, predictive_trigger = self._comfort_state_and_target(
-            zone_temperature, trend
+            zone_temperature, trend, trend_source
         )
 
         target_safe = house_dew_point + safety_margin if house_dew_point is not None else 19.0
@@ -428,6 +492,11 @@ class RadiantClimateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             "hottest_room": hottest_room["name"] if hottest_room else None,
             "hottest_room_temperature": hottest_room["temperature"] if hottest_room else None,
             "thermal_trend_per_hour": trend,
+            "thermal_trend_source": trend_source,
+            "thermal_trend_15m_per_hour": trends["trend_15m"],
+            "thermal_trend_30m_per_hour": trends["trend_30m"],
+            "thermal_trend_60m_per_hour": trends["trend_60m"],
+            "thermal_trend_sample_count": trends["trend_sample_count"],
             "critical_dew_room": nearest_dew_room_name,
             "critical_dew_zone": nearest_dew_room_zone,
             "critical_dew_delta": dew_delta,
