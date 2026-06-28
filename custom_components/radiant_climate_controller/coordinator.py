@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from datetime import timedelta
 import logging
 import math
@@ -9,7 +10,8 @@ import time
 from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant
+from homeassistant.core import Event, HomeAssistant, callback
+from homeassistant.helpers.event import async_track_state_change_event
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
 from .const import (
@@ -107,6 +109,7 @@ class RadiantClimateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         """Initialize coordinator."""
         self.entry = entry
         self._temperature_history: list[tuple[float, float]] = []
+        self._remove_state_listener: Callable[[], None] | None = None
         super().__init__(
             hass,
             _LOGGER,
@@ -118,6 +121,69 @@ class RadiantClimateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     async def _async_update_data(self) -> dict[str, Any]:
         """Update calculated data."""
         return self._calculate()
+
+    def async_start_listeners(self) -> None:
+        """Start listening to source entity changes."""
+        if self._remove_state_listener is not None:
+            return
+
+        entity_ids = sorted(self._watched_entity_ids())
+        if not entity_ids:
+            return
+
+        self._remove_state_listener = async_track_state_change_event(
+            self.hass,
+            entity_ids,
+            self._async_source_state_changed,
+        )
+        _LOGGER.debug("Watching %s source entities", len(entity_ids))
+
+    def async_stop_listeners(self) -> None:
+        """Stop listening to source entity changes."""
+        if self._remove_state_listener is not None:
+            self._remove_state_listener()
+            self._remove_state_listener = None
+
+    def _watched_entity_ids(self) -> set[str]:
+        """Return all HA entities that can change calculated data."""
+        data = self.entry.data
+        entity_ids: set[str] = {
+            data.get(CONF_SEASON_ENTITY),
+            ENTITY_DEW_POINT_MARGIN,
+            ENTITY_DEW_POINT_MAX_HOUSE,
+            ENTITY_STANDBY_RUGIADA,
+            ENTITY_STANDBY_PORTE,
+            ENTITY_STANDBY_ATTIVO,
+            ENTITY_ACS_BLOCK,
+        }
+
+        for cfg in ROOMS.values():
+            entity_ids.update(
+                {
+                    cfg.get("temperature"),
+                    cfg.get("humidity"),
+                    cfg.get("dew_point"),
+                    cfg.get("safety_boolean"),
+                }
+            )
+
+        for cfg in ZONE_DEHUMIDIFIERS.values():
+            entity_ids.update(
+                {
+                    cfg.get("request"),
+                    cfg.get("consent"),
+                    cfg.get("average_temperature"),
+                    cfg.get("average_humidity"),
+                    cfg.get("humidity_threshold"),
+                }
+            )
+
+        return {entity_id for entity_id in entity_ids if entity_id}
+
+    @callback
+    def _async_source_state_changed(self, event: Event) -> None:
+        """Refresh calculated data when a source entity changes."""
+        self.async_set_updated_data(self._calculate())
 
     def setting(self, key: str, default: Any) -> Any:
         """Return an integration option with fallback."""
@@ -232,7 +298,7 @@ class RadiantClimateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         ]
 
     def _trend_from_history(self, current_temperature: float | None, window_seconds: int, now_ts: float) -> float | None:
-        """Calculate filtered trend over a time window in °C/h."""
+        """Calculate filtered trend over a time window in C/h."""
         if current_temperature is None or not self._temperature_history:
             return None
 
@@ -307,7 +373,7 @@ class RadiantClimateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             trend_text = "trend filtrato non ancora disponibile"
         else:
             trend_value = trend
-            trend_text = f"trend {trend_source} {trend_value:.2f}°C/h"
+            trend_text = f"trend {trend_source} {trend_value:.2f} C/h"
 
         threshold_recovery = float(self.setting(OPT_THRESHOLD_RECOVERY, DEFAULT_THRESHOLD_RECOVERY))
         threshold_boost = float(self.setting(OPT_THRESHOLD_BOOST, DEFAULT_THRESHOLD_BOOST))
@@ -323,14 +389,14 @@ class RadiantClimateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             return (
                 STATE_RECOVERY,
                 self._target_for_state(STATE_RECOVERY),
-                f"recupero: temperatura {hottest_temp:.1f}°C, {trend_text}",
+                f"recupero: temperatura {hottest_temp:.1f} C, {trend_text}",
                 False,
             )
         if hottest_temp >= precool_recovery and trend_value >= trend_recovery:
             return (
                 STATE_RECOVERY,
                 self._target_for_state(STATE_RECOVERY),
-                f"recupero anticipato: temperatura {hottest_temp:.1f}°C, {trend_text}",
+                f"recupero anticipato: temperatura {hottest_temp:.1f} C, {trend_text}",
                 True,
             )
 
@@ -338,14 +404,14 @@ class RadiantClimateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             return (
                 STATE_BOOST,
                 self._target_for_state(STATE_BOOST),
-                f"spinto: temperatura {hottest_temp:.1f}°C, {trend_text}",
+                f"spinto: temperatura {hottest_temp:.1f} C, {trend_text}",
                 False,
             )
         if hottest_temp >= precool_boost and trend_value >= trend_boost:
             return (
                 STATE_BOOST,
                 self._target_for_state(STATE_BOOST),
-                f"spinto anticipato: temperatura {hottest_temp:.1f}°C, {trend_text}",
+                f"spinto anticipato: temperatura {hottest_temp:.1f} C, {trend_text}",
                 True,
             )
 
@@ -353,21 +419,21 @@ class RadiantClimateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             return (
                 STATE_NORMAL,
                 self._target_for_state(STATE_NORMAL),
-                f"normale: temperatura {hottest_temp:.1f}°C, {trend_text}",
+                f"normale: temperatura {hottest_temp:.1f} C, {trend_text}",
                 False,
             )
         if hottest_temp >= precool_normal and trend_value >= trend_normal:
             return (
                 STATE_NORMAL,
                 self._target_for_state(STATE_NORMAL),
-                f"normale anticipato: temperatura {hottest_temp:.1f}°C, {trend_text}",
+                f"normale anticipato: temperatura {hottest_temp:.1f} C, {trend_text}",
                 True,
             )
 
         return (
             STATE_MAINTENANCE,
             self._target_for_state(STATE_MAINTENANCE),
-            f"mantenimento: temperatura {hottest_temp:.1f}°C, {trend_text}",
+            f"mantenimento: temperatura {hottest_temp:.1f} C, {trend_text}",
             False,
         )
 
@@ -464,13 +530,13 @@ class RadiantClimateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         elif recommended_action == ACTION_LOCAL_PROTECTION and nearest_dew_room_name:
             action_reason = f"rischio rugiada localizzato in {nearest_dew_room_name}: preferire azione locale/testina"
         elif recommended_action == ACTION_DEHUMIDIFY and nearest_dew_room_zone:
-            action_reason = f"rischio rugiada in zona {nearest_dew_room_zone}: priorità deumidificazione zona"
+            action_reason = f"rischio rugiada in zona {nearest_dew_room_zone}: priorita deumidificazione zona"
         elif recommended_action == ACTION_ACS_BLOCK:
             action_reason = "ACS attiva o blocco miscelatrice: non usare il target come comando utile"
         elif recommended_action == ACTION_DOOR_STANDBY:
             action_reason = "porte/finestre in standby: evitare raffrescamento attivo"
         elif recommended_action == ACTION_DISABLED:
-            action_reason = "modalità stagionale diversa da Estate"
+            action_reason = "modalita stagionale diversa da Estate"
         elif recommended_action == ACTION_ACTIVE_COOLING:
             action_reason = f"raffrescamento attivo: {target_reason}"
         elif recommended_action == ACTION_PRECOOL:
