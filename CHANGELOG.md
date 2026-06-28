@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.3.4] - 2026-06-28
+
+### Fixed
+
+- Aggiunti i nomi mancanti per i nuovi sensori trend.
+- Migliorata la leggibilita dei nomi mostrati da Home Assistant.
+
+### Notes
+
+Dopo aggiornamento e riavvio, i nomi visualizzati dovrebbero essere corretti. Gli entity_id gia generati da Home Assistant potrebbero restare invariati e vanno rinominati manualmente se necessario.
+
 ## [0.3.3] - 2026-06-28
 
 ### Added
