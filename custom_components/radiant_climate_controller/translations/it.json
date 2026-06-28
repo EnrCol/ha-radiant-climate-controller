@@ -7,18 +7,18 @@
         "description": "La v0.3 usa il modello stanze dell'impianto di Enrico e parametri configurabili da UI.",
         "data": {
           "name": "Nome",
-          "season_entity": "Entità modalità stagionale"
+          "season_entity": "Entita modalita stagionale"
         }
       }
     },
     "abort": {
-      "already_configured": "La centralina radiante è già configurata."
+      "already_configured": "La centralina radiante e gia configurata."
     }
   },
   "entity": {
     "sensor": {
       "zone_temperature": {"name": "Temperatura massima casa"},
-      "zone_humidity": {"name": "Umidità massima casa"},
+      "zone_humidity": {"name": "Umidita massima casa"},
       "dew_point": {"name": "Punto rugiada massimo casa"},
       "climate_state": {"name": "Stato radiante"},
       "target_requested": {"name": "Target mandata comfort"},
@@ -26,11 +26,16 @@
       "target_final": {"name": "Target mandata consigliato"},
       "dew_point_delta": {"name": "Delta sicurezza target"},
       "season_state": {"name": "Stato stagione"},
-      "hottest_room": {"name": "Stanza più calda"},
-      "hottest_room_temperature": {"name": "Temperatura stanza più calda"},
-      "thermal_trend_per_hour": {"name": "Trend temperatura casa"},
-      "critical_dew_room": {"name": "Stanza più vicina alla rugiada"},
-      "critical_dew_zone": {"name": "Zona più vicina alla rugiada"},
+      "hottest_room": {"name": "Stanza piu calda"},
+      "hottest_room_temperature": {"name": "Temperatura stanza piu calda"},
+      "thermal_trend_per_hour": {"name": "Trend temperatura usato"},
+      "thermal_trend_source": {"name": "Fonte trend temperatura"},
+      "thermal_trend_15m_per_hour": {"name": "Trend temperatura 15 min"},
+      "thermal_trend_30m_per_hour": {"name": "Trend temperatura 30 min"},
+      "thermal_trend_60m_per_hour": {"name": "Trend temperatura 60 min"},
+      "thermal_trend_sample_count": {"name": "Campioni trend temperatura"},
+      "critical_dew_room": {"name": "Stanza piu vicina alla rugiada"},
+      "critical_dew_zone": {"name": "Zona piu vicina alla rugiada"},
       "critical_dew_delta": {"name": "Delta minimo dalla rugiada"},
       "critical_dew_state": {"name": "Stato rischio rugiada"},
       "recommended_action": {"name": "Azione consigliata"},
