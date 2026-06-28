@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.3.3] - 2026-06-28
+
+### Added
+
+- Aggiunta state machine con memoria dello stato radiante precedente.
+- Aggiunta isteresi fissa di 0.3 C per uscire dagli stati normale, spinto e recupero.
+
+### Changed
+
+- Il trend positivo continua ad anticipare gli stati piu forti.
+- Il trend negativo non forza l uscita immediata da uno stato alto.
+- La centralina resta nello stato precedente finche la temperatura non scende sotto la soglia di uscita.
+
+### Notes
+
+Questa versione stabilizza lo stato radiante prima del futuro collegamento a ESPHome.
+
 ## [0.3.2] - 2026-06-28
 
 ### Fixed
@@ -10,7 +27,7 @@
 
 ### Notes
 
-Il polling resta attivo ogni 30 secondi, ma ora non e piu l'unico meccanismo di aggiornamento.
+Il polling resta attivo ogni 30 secondi, ma ora non e piu l unico meccanismo di aggiornamento.
 
 ## [0.3.1] - 2026-06-27
 
@@ -36,13 +53,13 @@ I trend sono ancora calcolati in memoria. Dopo riavvio o reload integrazione ser
 
 ### Added
 
-- Aggiunte entita `number` per configurare da UI:
+- Aggiunte entita number per configurare da UI:
   - soglie stato normale/spinto/recupero;
   - soglie anticipo normale/spinto/recupero;
   - trend minimo normale/spinto/recupero;
   - target mandata mantenimento/normale/spinto/recupero;
   - margine punto rugiada.
-- Aggiunta entita `select` per forzare manualmente lo stato radiante:
+- Aggiunta entita select per forzare manualmente lo stato radiante:
   - auto;
   - mantenimento;
   - normale;
@@ -53,7 +70,7 @@ I trend sono ancora calcolati in memoria. Dopo riavvio o reload integrazione ser
 ### Changed
 
 - Il coordinator usa i parametri configurati da UI invece dei soli default hardcoded.
-- `hacs.json` dichiara anche i domini `number` e `select`.
+- hacs.json resta compatibile con lo schema HACS corrente.
 
 ### Notes
 
@@ -64,8 +81,8 @@ La centralina resta osservativa: la v0.3 non comanda ancora ESPHome, termostati,
 ### Changed
 
 - Rinominata la logica osservatore rugiada: la stanza mostrata e ora la piu vicina alla rugiada, non necessariamente critica.
-- Aggiunta azione `raffrescamento_attivo` per distinguere il recupero reale dall'anticipo predittivo.
-- `anticipo_raffrescamento` resta usato solo quando la soglia viene anticipata grazie al trend.
+- Aggiunta azione raffrescamento_attivo per distinguere il recupero reale dall anticipo predittivo.
+- anticipo_raffrescamento resta usato solo quando la soglia viene anticipata grazie al trend.
 - Migliorati i testi di motivo target e motivo azione quando il trend non e ancora disponibile.
 - Aggiunto workflow GitHub Actions per validazione HACS.
 - Aggiunto logo SVG nel README.
@@ -78,7 +95,7 @@ Questa versione resta osservativa: non comanda ancora ESPHome, termostati, testi
 
 ### Added
 
-- Modello stanze reale per l'impianto di Enrico.
+- Modello stanze reale per l impianto di Enrico.
 - Zone deumidifica giorno/notte.
 - Sensori predittivi:
   - temperatura massima casa;
