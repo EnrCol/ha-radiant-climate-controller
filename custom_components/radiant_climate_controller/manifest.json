@@ -9,5 +9,5 @@
   "integration_type": "hub",
   "single_config_entry": true,
   "requirements": [],
-  "version": "0.3.1"
+  "version": "0.3.2"
 }
