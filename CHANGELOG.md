@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.3.2] - 2026-06-28
+
+### Fixed
+
+- Aggiunto refresh immediato quando cambiano le entita sorgente della centralina.
+- Le temperature stanza, umidita, rugiada, standby, ACS e richiesta deumidifica ora forzano il ricalcolo del coordinator.
+- Corretto il caso in cui temperatura massima casa, stanza piu calda e trend restavano fermi per ore.
+
+### Notes
+
+Il polling resta attivo ogni 30 secondi, ma ora non e piu l'unico meccanismo di aggiornamento.
+
 ## [0.3.1] - 2026-06-27
 
 ### Added
