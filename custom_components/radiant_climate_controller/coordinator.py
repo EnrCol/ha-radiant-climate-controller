@@ -81,6 +81,14 @@ TREND_WINDOWS_SECONDS = {
     "60m": 60 * 60,
 }
 
+STATE_HYSTERESIS_C = 0.3
+STATE_RANK = {
+    STATE_MAINTENANCE: 0,
+    STATE_NORMAL: 1,
+    STATE_BOOST: 2,
+    STATE_RECOVERY: 3,
+}
+
 
 def _as_float(value: Any) -> float | None:
     """Convert a Home Assistant value to float."""
@@ -109,6 +117,7 @@ class RadiantClimateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         """Initialize coordinator."""
         self.entry = entry
         self._temperature_history: list[tuple[float, float]] = []
+        self._last_comfort_state: str | None = None
         self._remove_state_listener: Callable[[], None] | None = None
         super().__init__(
             hass,
@@ -352,15 +361,54 @@ class RadiantClimateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             "trend_sample_count": len(self._temperature_history),
         }
 
+    def _exit_threshold_for_state(self, state: str, thresholds: dict[str, float]) -> float | None:
+        """Return the lower threshold used to leave the current state."""
+        if state == STATE_RECOVERY:
+            return thresholds[STATE_RECOVERY] - STATE_HYSTERESIS_C
+        if state == STATE_BOOST:
+            return thresholds[STATE_BOOST] - STATE_HYSTERESIS_C
+        if state == STATE_NORMAL:
+            return thresholds[STATE_NORMAL] - STATE_HYSTERESIS_C
+        return None
+
+    def _base_comfort_state(
+        self,
+        hottest_temp: float,
+        trend_value: float,
+        trend_text: str,
+        thresholds: dict[str, float],
+        precool: dict[str, float],
+        trend_thresholds: dict[str, float],
+    ) -> tuple[str, str, bool]:
+        """Calculate the comfort state before hysteresis is applied."""
+        if hottest_temp >= thresholds[STATE_RECOVERY]:
+            return STATE_RECOVERY, f"recupero: temperatura {hottest_temp:.1f} C, {trend_text}", False
+        if hottest_temp >= precool[STATE_RECOVERY] and trend_value >= trend_thresholds[STATE_RECOVERY]:
+            return STATE_RECOVERY, f"recupero anticipato: temperatura {hottest_temp:.1f} C, {trend_text}", True
+
+        if hottest_temp >= thresholds[STATE_BOOST]:
+            return STATE_BOOST, f"spinto: temperatura {hottest_temp:.1f} C, {trend_text}", False
+        if hottest_temp >= precool[STATE_BOOST] and trend_value >= trend_thresholds[STATE_BOOST]:
+            return STATE_BOOST, f"spinto anticipato: temperatura {hottest_temp:.1f} C, {trend_text}", True
+
+        if hottest_temp >= thresholds[STATE_NORMAL]:
+            return STATE_NORMAL, f"normale: temperatura {hottest_temp:.1f} C, {trend_text}", False
+        if hottest_temp >= precool[STATE_NORMAL] and trend_value >= trend_thresholds[STATE_NORMAL]:
+            return STATE_NORMAL, f"normale anticipato: temperatura {hottest_temp:.1f} C, {trend_text}", True
+
+        return STATE_MAINTENANCE, f"mantenimento: temperatura {hottest_temp:.1f} C, {trend_text}", False
+
     def _comfort_state_and_target(
         self, hottest_temp: float | None, trend: float | None, trend_source: str | None
     ) -> tuple[str, float, str, bool]:
         manual_state = self.setting(OPT_MANUAL_STATE, MANUAL_AUTO)
         if manual_state != MANUAL_AUTO:
+            self._last_comfort_state = None
             target = self._target_for_state(manual_state)
             return manual_state, target, f"stato radiante forzato manualmente: {manual_state}", False
 
         if hottest_temp is None:
+            self._last_comfort_state = None
             return (
                 STATE_UNKNOWN,
                 self._target_for_state(STATE_MAINTENANCE),
@@ -375,67 +423,49 @@ class RadiantClimateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             trend_value = trend
             trend_text = f"trend {trend_source} {trend_value:.2f} C/h"
 
-        threshold_recovery = float(self.setting(OPT_THRESHOLD_RECOVERY, DEFAULT_THRESHOLD_RECOVERY))
-        threshold_boost = float(self.setting(OPT_THRESHOLD_BOOST, DEFAULT_THRESHOLD_BOOST))
-        threshold_normal = float(self.setting(OPT_THRESHOLD_NORMAL, DEFAULT_THRESHOLD_NORMAL))
-        precool_recovery = float(self.setting(OPT_PRECOOL_RECOVERY_TEMP, DEFAULT_PRECOOL_RECOVERY_TEMP))
-        precool_boost = float(self.setting(OPT_PRECOOL_BOOST_TEMP, DEFAULT_PRECOOL_BOOST_TEMP))
-        precool_normal = float(self.setting(OPT_PRECOOL_NORMAL_TEMP, DEFAULT_PRECOOL_NORMAL_TEMP))
-        trend_recovery = float(self.setting(OPT_TREND_RECOVERY, DEFAULT_TREND_RECOVERY))
-        trend_boost = float(self.setting(OPT_TREND_BOOST, DEFAULT_TREND_BOOST))
-        trend_normal = float(self.setting(OPT_TREND_NORMAL, DEFAULT_TREND_NORMAL))
+        thresholds = {
+            STATE_RECOVERY: float(self.setting(OPT_THRESHOLD_RECOVERY, DEFAULT_THRESHOLD_RECOVERY)),
+            STATE_BOOST: float(self.setting(OPT_THRESHOLD_BOOST, DEFAULT_THRESHOLD_BOOST)),
+            STATE_NORMAL: float(self.setting(OPT_THRESHOLD_NORMAL, DEFAULT_THRESHOLD_NORMAL)),
+        }
+        precool = {
+            STATE_RECOVERY: float(self.setting(OPT_PRECOOL_RECOVERY_TEMP, DEFAULT_PRECOOL_RECOVERY_TEMP)),
+            STATE_BOOST: float(self.setting(OPT_PRECOOL_BOOST_TEMP, DEFAULT_PRECOOL_BOOST_TEMP)),
+            STATE_NORMAL: float(self.setting(OPT_PRECOOL_NORMAL_TEMP, DEFAULT_PRECOOL_NORMAL_TEMP)),
+        }
+        trend_thresholds = {
+            STATE_RECOVERY: float(self.setting(OPT_TREND_RECOVERY, DEFAULT_TREND_RECOVERY)),
+            STATE_BOOST: float(self.setting(OPT_TREND_BOOST, DEFAULT_TREND_BOOST)),
+            STATE_NORMAL: float(self.setting(OPT_TREND_NORMAL, DEFAULT_TREND_NORMAL)),
+        }
 
-        if hottest_temp >= threshold_recovery:
-            return (
-                STATE_RECOVERY,
-                self._target_for_state(STATE_RECOVERY),
-                f"recupero: temperatura {hottest_temp:.1f} C, {trend_text}",
-                False,
-            )
-        if hottest_temp >= precool_recovery and trend_value >= trend_recovery:
-            return (
-                STATE_RECOVERY,
-                self._target_for_state(STATE_RECOVERY),
-                f"recupero anticipato: temperatura {hottest_temp:.1f} C, {trend_text}",
-                True,
-            )
-
-        if hottest_temp >= threshold_boost:
-            return (
-                STATE_BOOST,
-                self._target_for_state(STATE_BOOST),
-                f"spinto: temperatura {hottest_temp:.1f} C, {trend_text}",
-                False,
-            )
-        if hottest_temp >= precool_boost and trend_value >= trend_boost:
-            return (
-                STATE_BOOST,
-                self._target_for_state(STATE_BOOST),
-                f"spinto anticipato: temperatura {hottest_temp:.1f} C, {trend_text}",
-                True,
-            )
-
-        if hottest_temp >= threshold_normal:
-            return (
-                STATE_NORMAL,
-                self._target_for_state(STATE_NORMAL),
-                f"normale: temperatura {hottest_temp:.1f} C, {trend_text}",
-                False,
-            )
-        if hottest_temp >= precool_normal and trend_value >= trend_normal:
-            return (
-                STATE_NORMAL,
-                self._target_for_state(STATE_NORMAL),
-                f"normale anticipato: temperatura {hottest_temp:.1f} C, {trend_text}",
-                True,
-            )
-
-        return (
-            STATE_MAINTENANCE,
-            self._target_for_state(STATE_MAINTENANCE),
-            f"mantenimento: temperatura {hottest_temp:.1f} C, {trend_text}",
-            False,
+        base_state, base_reason, predictive_trigger = self._base_comfort_state(
+            hottest_temp,
+            trend_value,
+            trend_text,
+            thresholds,
+            precool,
+            trend_thresholds,
         )
+
+        last_state = self._last_comfort_state
+        if (
+            last_state in STATE_RANK
+            and base_state in STATE_RANK
+            and STATE_RANK[last_state] > STATE_RANK[base_state]
+        ):
+            exit_threshold = self._exit_threshold_for_state(last_state, thresholds)
+            if exit_threshold is not None and hottest_temp > exit_threshold:
+                self._last_comfort_state = last_state
+                return (
+                    last_state,
+                    self._target_for_state(last_state),
+                    f"{last_state} mantenuto: temperatura {hottest_temp:.1f} C sopra uscita {exit_threshold:.1f} C, {trend_text}",
+                    False,
+                )
+
+        self._last_comfort_state = base_state
+        return base_state, self._target_for_state(base_state), base_reason, predictive_trigger
 
     def _calculate(self) -> dict[str, Any]:
         data = self.entry.data
