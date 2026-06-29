@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.3.6] - 2026-06-29
+
+### Changed
+
+- Stanza piu vicina alla rugiada ora e diagnostica e disabilitata di default.
+- Zona piu vicina alla rugiada ora e diagnostica e disabilitata di default.
+
+### Notes
+
+Le entita gia create da Home Assistant possono restare attive nel registro entita. In quel caso vanno disattivate manualmente una sola volta.
+
 ## [0.3.5] - 2026-06-29
 
 ### Changed
