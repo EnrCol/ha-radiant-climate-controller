@@ -84,6 +84,8 @@ TREND_WINDOWS_SECONDS = {
 STATE_HYSTERESIS_C = 0.3
 HOTTEST_ROOM_SWITCH_DELTA_C = 0.2
 TREND_REASON_STABLE_C_PER_H = 0.05
+TARGET_COMMAND_MIN_C = 17.0
+TARGET_COMMAND_MAX_C = 23.0
 STATE_RANK = {
     STATE_MAINTENANCE: 0,
     STATE_NORMAL: 1,
@@ -221,11 +223,7 @@ class RadiantClimateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         return _as_float(self._state(entity_id))
 
     def _safety_margin(self) -> float:
-        """Return dew point safety margin.
-
-        If the integration number is changed, it overrides the existing HA helper.
-        Otherwise the existing HA helper remains the source of truth.
-        """
+        """Return dew point safety margin."""
         if OPT_DEW_POINT_MARGIN in self.entry.options:
             return float(self.entry.options[OPT_DEW_POINT_MARGIN])
         return self._float_state(ENTITY_DEW_POINT_MARGIN) or DEFAULT_DEW_POINT_MARGIN
@@ -497,6 +495,41 @@ class RadiantClimateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self._last_comfort_state = base_state
         return base_state, self._target_for_state(base_state), base_reason, predictive_trigger
 
+    def _command_gate(
+        self,
+        *,
+        summer_enabled: bool,
+        target_final: float | None,
+        climate_state: str,
+        recommended_action: str,
+        acs_block: bool,
+        standby_porte: bool,
+        standby_rugiada: bool,
+        manual_state: str,
+    ) -> tuple[bool, str]:
+        """Return whether the final target can be used as an external command."""
+        if not summer_enabled:
+            return False, "non comandabile: modalita stagionale diversa da Estate"
+        if manual_state != MANUAL_AUTO:
+            return False, "non comandabile: stato manuale attivo"
+        if climate_state == STATE_UNKNOWN:
+            return False, "non comandabile: stato radiante sconosciuto"
+        if target_final is None:
+            return False, "non comandabile: target mandata non disponibile"
+        if target_final < TARGET_COMMAND_MIN_C or target_final > TARGET_COMMAND_MAX_C:
+            return False, "non comandabile: target mandata fuori range sicuro"
+        if acs_block:
+            return False, "non comandabile: ACS attiva o blocco miscelatrice"
+        if standby_porte:
+            return False, "non comandabile: standby porte/finestre attivo"
+        if standby_rugiada or recommended_action == ACTION_GLOBAL_PROTECTION:
+            return False, "non comandabile: protezione rugiada globale attiva"
+        if recommended_action in (ACTION_LOCAL_PROTECTION, ACTION_DEHUMIDIFY):
+            return False, "non comandabile: rischio rugiada locale da gestire prima"
+        if recommended_action == ACTION_DISABLED:
+            return False, "non comandabile: raffrescamento non abilitato"
+        return True, "comandabile: target valido e sicurezze ok"
+
     def _calculate(self) -> dict[str, Any]:
         data = self.entry.data
         season_entity = data.get(CONF_SEASON_ENTITY)
@@ -543,6 +576,7 @@ class RadiantClimateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         standby_porte = self._is_on(ENTITY_STANDBY_PORTE)
         standby_rugiada = self._is_on(ENTITY_STANDBY_RUGIADA)
         standby_attivo = self._is_on(ENTITY_STANDBY_ATTIVO)
+        manual_state = self.setting(OPT_MANUAL_STATE, MANUAL_AUTO)
 
         critical_rooms = [room for room in rooms.values() if room["risk"] == "critico"]
         warning_rooms = [room for room in rooms.values() if room["risk"] == "attenzione"]
@@ -595,6 +629,17 @@ class RadiantClimateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         elif recommended_action == ACTION_PRECOOL:
             action_reason = f"anticipo raffrescamento: {target_reason}"
 
+        target_commandable, target_commandable_reason = self._command_gate(
+            summer_enabled=summer_enabled,
+            target_final=target_final,
+            climate_state=climate_state,
+            recommended_action=recommended_action,
+            acs_block=acs_block,
+            standby_porte=standby_porte,
+            standby_rugiada=standby_rugiada,
+            manual_state=manual_state,
+        )
+
         return {
             "zone_temperature": zone_temperature,
             "zone_humidity": zone_humidity,
@@ -603,6 +648,8 @@ class RadiantClimateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             "target_requested": target_requested,
             "target_safe": target_safe,
             "target_final": target_final,
+            "target_commandable": target_commandable,
+            "target_commandable_reason": target_commandable_reason,
             "dew_point_delta": target_final - house_dew_point
             if target_final is not None and house_dew_point is not None
             else None,
@@ -634,6 +681,6 @@ class RadiantClimateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             "standby_attivo": standby_attivo,
             "acs_block": acs_block,
             "room_count": len(rooms),
-            "manual_state": self.setting(OPT_MANUAL_STATE, MANUAL_AUTO),
+            "manual_state": manual_state,
             "safety_margin": safety_margin,
         }
