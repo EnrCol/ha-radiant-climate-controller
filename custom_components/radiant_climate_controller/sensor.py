@@ -9,6 +9,7 @@ from homeassistant.components.sensor import SensorDeviceClass, SensorEntity, Sen
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import PERCENTAGE, UnitOfTemperature
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
@@ -45,11 +46,7 @@ SENSORS: tuple[RadiantSensorDescription, ...] = (
         native_unit_of_measurement=UnitOfTemperature.CELSIUS,
         device_class=SensorDeviceClass.TEMPERATURE,
     ),
-    RadiantSensorDescription(
-        key="climate_state",
-        translation_key="climate_state",
-        value_key="climate_state",
-    ),
+    RadiantSensorDescription(key="climate_state", translation_key="climate_state", value_key="climate_state"),
     RadiantSensorDescription(
         key="target_requested",
         translation_key="target_requested",
@@ -77,16 +74,8 @@ SENSORS: tuple[RadiantSensorDescription, ...] = (
         value_key="dew_point_delta",
         native_unit_of_measurement=UnitOfTemperature.CELSIUS,
     ),
-    RadiantSensorDescription(
-        key="season_state",
-        translation_key="season_state",
-        value_key="season_state",
-    ),
-    RadiantSensorDescription(
-        key="hottest_room",
-        translation_key="hottest_room",
-        value_key="hottest_room",
-    ),
+    RadiantSensorDescription(key="season_state", translation_key="season_state", value_key="season_state"),
+    RadiantSensorDescription(key="hottest_room", translation_key="hottest_room", value_key="hottest_room"),
     RadiantSensorDescription(
         key="hottest_room_temperature",
         translation_key="hottest_room_temperature",
@@ -127,6 +116,8 @@ SENSORS: tuple[RadiantSensorDescription, ...] = (
         key="thermal_trend_sample_count",
         translation_key="thermal_trend_sample_count",
         value_key="thermal_trend_sample_count",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        entity_registry_enabled_default=False,
     ),
     RadiantSensorDescription(
         key="critical_dew_room",
