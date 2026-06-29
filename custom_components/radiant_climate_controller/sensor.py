@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import time
 from typing import Any
 
 from homeassistant.components.sensor import SensorDeviceClass, SensorEntity, SensorEntityDescription
@@ -72,6 +73,12 @@ SENSORS: tuple[RadiantSensorDescription, ...] = (
         key="target_commandable_reason",
         translation_key="target_commandable_reason",
         value_key="target_commandable_reason",
+    ),
+    RadiantSensorDescription(
+        key="command_heartbeat",
+        translation_key="command_heartbeat",
+        value_key="command_heartbeat",
+        entity_category=EntityCategory.DIAGNOSTIC,
     ),
     RadiantSensorDescription(
         key="dew_point_delta",
@@ -191,6 +198,9 @@ class RadiantClimateSensor(CoordinatorEntity[RadiantClimateCoordinator], SensorE
     @property
     def native_value(self) -> Any:
         """Return native sensor value."""
+        if self.entity_description.key == "command_heartbeat":
+            return int(time.time())
+
         value = self.coordinator.data.get(self.entity_description.value_key)
         if isinstance(value, float):
             return round(value, 2)
