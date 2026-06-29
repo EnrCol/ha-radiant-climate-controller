@@ -419,8 +419,6 @@ class RadiantClimateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         """Calculate the comfort state before hysteresis is applied."""
         if hottest_temp >= thresholds[STATE_RECOVERY]:
             return STATE_RECOVERY, f"recupero: temperatura {hottest_temp:.1f} C, {trend_text}", False
-        if hottest_temp >= precool[STATE_RECOVERY] and trend_value >= trend_thresholds[STATE_RECOVERY]:
-            return STATE_RECOVERY, f"recupero anticipato: temperatura {hottest_temp:.1f} C, {trend_text}", True
 
         if hottest_temp >= thresholds[STATE_BOOST]:
             return STATE_BOOST, f"spinto: temperatura {hottest_temp:.1f} C, {trend_text}", False
