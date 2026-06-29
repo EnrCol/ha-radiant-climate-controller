@@ -28,6 +28,7 @@
       "target_safe": {"name": "Target mandata sicuro"},
       "target_final": {"name": "Target mandata consigliato"},
       "target_commandable_reason": {"name": "Motivo target non comandabile"},
+      "command_heartbeat": {"name": "Heartbeat comando HA"},
       "dew_point_delta": {"name": "Delta sicurezza target"},
       "season_state": {"name": "Stato stagione"},
       "hottest_room": {"name": "Stanza piu calda"},
