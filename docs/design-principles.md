@@ -4,7 +4,7 @@
 
 La centralina nasce per risolvere il problema del raffrescamento radiante che arriva tardi.
 
-Il problema osservato non è solo il PID della valvola, ma il ritardo complessivo tra:
+Il problema non e solo il PID della valvola, ma il ritardo complessivo tra:
 
 ```text
 carico termico reale
@@ -14,54 +14,73 @@ carico termico reale
 → comfort percepito
 ```
 
-La centralina deve quindi anticipare, non inseguire.
+La centralina deve anticipare con prudenza, non inseguire in modo nervoso.
 
-## Ruolo dei package Home Assistant attuali
+## Filosofia
 
-I package attuali sono dati di contesto e integrazione.
+La centralina non deve essere un clone dei package YAML attuali.
 
-Non sono automaticamente la soluzione migliore e non devono essere considerati immutabili.
+I package esistenti sono una base di conoscenza:
 
-La centralina deve:
+- entita reali gia affidabili;
+- logiche di standby;
+- logiche ACS;
+- logiche rugiada;
+- logiche deumidificazione.
 
-- leggere la situazione reale esistente;
-- riusare le entità già affidabili;
-- rispettare i blocchi di sicurezza esistenti;
-- proporre miglioramenti dove la logica attuale arriva tardi o lavora in modo troppo grezzo.
+Dove funzionano, si riusano.
+
+Dove producono rumore o ritardo, si migliora.
+
+Dove diventano ridondanti, si potranno semplificare in futuro.
+
+## Strada evolutiva
+
+La sequenza corretta e:
+
+1. osservare;
+2. stabilizzare i sensori e lo storico;
+3. calcolare stato e target;
+4. verificare il comportamento su casa reale;
+5. aggiungere consenso comando;
+6. collegare ESPHome solo con fallback;
+7. valutare azioni locali su deumidifica, testine e termostati.
 
 ## Cosa evitare
 
-Non bisogna trasformare la centralina in un semplice clone dei package attuali.
+Non bisogna:
 
-Non bisogna neppure fare un refactor gigante senza motivo.
-
-La strada corretta è evolutiva:
-
-1. osservare;
-2. confrontare logica attuale e logica proposta;
-3. generare target e consigli;
-4. abilitare comandi attivi solo quando il comportamento è verificato.
+- comandare ESPHome prima che il target sia stabile;
+- far cambiare stato per ogni piccola variazione del trend;
+- usare sensori diagnostici rumorosi come dashboard principale;
+- inseguire il comfort solo con temperatura media;
+- ignorare la stanza peggiore;
+- ignorare il punto rugiada;
+- rimuovere fallback locali da ESPHome.
 
 ## Logica da perseguire
 
-La centralina deve usare più livelli:
+La centralina deve usare piu livelli:
 
-- temperatura stanza più calda;
-- trend temperatura interna;
-- umidità e punto rugiada stanza per stanza;
+- temperatura stanza piu calda;
+- trend temperatura interna filtrato;
+- umidita stanza;
+- punto rugiada stanza;
+- punto rugiada massimo casa;
+- delta minimo dalla rugiada;
 - stato deumidificazione zona giorno/notte;
-- stato termostati e chiamate reali;
-- temperatura esterna e, in futuro, previsione;
-- stato ACS, porte/finestre e standby.
+- stato ACS;
+- standby porte/finestre;
+- standby rugiada;
+- stato stagionale;
+- in futuro, temperatura esterna e previsione.
 
 ## Decisione corretta
 
-La centralina deve scegliere il target mandata pavimento più utile e sicuro per prevenire il surriscaldamento delle stanze.
-
-La domanda guida non è:
+La domanda guida non e:
 
 ```text
-quanto è caldo fuori adesso?
+quanto e caldo fuori adesso?
 ```
 
 ma:
@@ -70,12 +89,52 @@ ma:
 con questa casa, questa inerzia e queste stanze, che mandata serve adesso per non arrivare tardi tra 1-3 ore?
 ```
 
-## Uso della logica attuale
+## Prudenza
 
-La logica attuale di termostati, deumidificatori e rugiada deve essere usata come base di conoscenza.
+La centralina deve scegliere il target mandata piu utile e sicuro.
 
-Dove funziona, si riusa.
+Deve raffrescare abbastanza presto, ma non deve forzare stati troppo aggressivi per variazioni deboli.
 
-Dove limita il risultato, si migliora.
+Per questo sono stati introdotti:
 
-Dove è ridondante rispetto alla centralina, si può valutare una semplificazione futura.
+- trend filtrati;
+- testi motivo meno variabili;
+- state machine con isteresi;
+- stabilizzazione stanza piu calda;
+- disattivazione recupero anticipato;
+- diagnostica separata dai sensori principali.
+
+## Sicurezza
+
+La regola anti-condensa e superiore alla richiesta comfort.
+
+```text
+target_finale = max(target_comfort, punto_rugiada_massimo_casa + margine)
+```
+
+Se il rischio rugiada e alto, la centralina deve preferire protezione, deumidificazione o fallback.
+
+## Futuro comando attivo
+
+Il comando attivo deve passare da un consenso esplicito.
+
+Nessun target deve arrivare a ESPHome come comando utile se:
+
+- non e Estate;
+- ACS e attiva;
+- porte/finestre sono in standby;
+- il rischio rugiada e globale;
+- il target e fuori range;
+- i dati principali sono mancanti;
+- Home Assistant e appena ripartito e non ha ancora trend affidabile.
+
+## Ruolo finale
+
+A regime:
+
+```text
+Home Assistant decide la strategia climatica
+ESPHome esegue il controllo locale in sicurezza
+```
+
+Questa separazione deve restare chiara anche nelle versioni attive.
