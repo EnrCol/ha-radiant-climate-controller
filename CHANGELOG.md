@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.3.5] - 2026-06-29
+
+### Changed
+
+- Aggiunta stabilizzazione della stanza piu calda con delta minimo di 0.2 C prima di cambiare stanza visualizzata.
+- Resi piu stabili i testi di motivo target e motivo azione usando descrizioni del trend meno variabili.
+- Campioni trend temperatura ora e una entita diagnostica disabilitata di default.
+
+### Notes
+
+La temperatura massima casa resta sempre il massimo reale tra le stanze. La stanza piu calda visualizzata invece viene stabilizzata per evitare oscillazioni tra stanze quasi uguali.
+
 ## [0.3.4] - 2026-06-28
 
 ### Fixed
