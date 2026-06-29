@@ -16,9 +16,9 @@ Il progetto nasce per un impianto radiante in raffrescamento con:
 
 ## Stato attuale
 
-La serie `0.3.x` e ancora **osservativa**.
+La serie `0.4.x` introduce il primo livello di preparazione al comando ESPHome.
 
-L integrazione non comanda ancora ESPHome, termostati, testine o deumidificatori. Calcola pero lo stato climatico consigliato e il target mandata che in futuro potra essere usato come comando.
+L integrazione **non comanda ancora direttamente ESPHome**, ma espone un consenso esplicito per dire se il target mandata consigliato puo essere usato come comando esterno.
 
 Oggi l integrazione:
 
@@ -30,8 +30,10 @@ Oggi l integrazione:
 - usa isteresi sugli stati per evitare cambi continui vicino alle soglie;
 - protegge il target mandata con punto rugiada massimo casa + margine;
 - tiene conto di ACS, standby porte, standby rugiada e rischio condensa;
-- espone target richiesto, target sicuro e target consigliato;
+- espone target comfort, target sicuro e target consigliato;
 - espone azione consigliata e motivo azione;
+- espone `Target mandata comandabile` per il futuro collegamento a ESPHome;
+- espone il motivo quando il target non e comandabile;
 - permette configurazione da UI tramite entita number/select.
 
 ## Obiettivo finale
@@ -62,21 +64,30 @@ La logica estiva usa la temperatura piu alta tra le stanze come riferimento prin
 | spinto | >= 25.7 C | >= 25.3 C e trend positivo | 18.5 C |
 | recupero | >= 26.2 C | no | 18.0 C |
 
-Il recupero anticipato e stato disattivato: il recupero entra solo sopra la soglia reale. Questo riduce oscillazioni tra `recupero anticipato` e `spinto` quando la temperatura e quasi stabile.
+Il recupero anticipato e disattivato: il recupero entra solo sopra la soglia reale.
 
-## Isteresi stati
+## Consenso comando v0.4
 
-Per evitare una centralina nervosa, gli stati automatici usano memoria dello stato precedente e isteresi.
-
-Default:
+La v0.4 aggiunge:
 
 ```text
-recupero entra sopra 26.2 C, esce sotto 25.9 C
-spinto entra sopra 25.7 C, esce sotto 25.4 C
-normale entra sopra 25.2 C, esce sotto 24.9 C
+binary_sensor.centralina_radiante_target_mandata_comandabile
+sensor.centralina_radiante_motivo_target_non_comandabile
 ```
 
-La temperatura massima casa resta sempre il massimo reale. Solo alcune entita descrittive, come la stanza piu calda, vengono stabilizzate per ridurre rumore nello storico.
+Il target e comandabile solo quando:
+
+- Estate e attiva;
+- stato manuale e `auto`;
+- stato radiante noto;
+- target mandata disponibile;
+- target tra 17 C e 23 C;
+- ACS non attiva;
+- standby porte non attivo;
+- protezione rugiada globale non attiva;
+- non c e una protezione locale rugiada o richiesta deumidifica prioritaria.
+
+Questo consenso e pensato per ESPHome: il PID potra usare il target Home Assistant solo quando il binary sensor e `on`.
 
 ## Sicurezza rugiada
 
@@ -86,31 +97,7 @@ Il target consigliato non puo scendere sotto il limite anti-condensa:
 target_consigliato = max(target_comfort, punto_rugiada_massimo_casa + margine)
 ```
 
-Il margine viene letto dal number dell integrazione se modificato da UI. Se non e stato modificato, resta valido l helper esistente:
-
-```text
-input_number.rugiada_temperatura_delta_sicurezza
-```
-
-Fallback: `2.5 C`.
-
-## Modello impianto
-
-Stanze considerate:
-
-- cucina;
-- soggiorno;
-- bagno;
-- studio;
-- camera;
-- camera Ricky.
-
-Zone:
-
-- zona giorno: cucina, soggiorno;
-- zona notte: bagno, studio, camera, camera Ricky.
-
-Il soggiorno puo avere apporti solari forti. La camera puo avere portata radiante ridotta. Per questo la centralina deve leggere la casa reale e non basarsi solo su medie generali.
+Fallback margine: `2.5 C`.
 
 ## Entita principali
 
@@ -123,6 +110,7 @@ Sensori principali:
 - Target mandata comfort;
 - Target mandata sicuro;
 - Target mandata consigliato;
+- Motivo target non comandabile;
 - Delta sicurezza target;
 - Stanza piu calda;
 - Temperatura stanza piu calda;
@@ -136,61 +124,42 @@ Sensori principali:
 - Stanze in rischio critico;
 - Stanze in attenzione.
 
+Binary sensor principale:
+
+- Target mandata comandabile.
+
 Entita diagnostiche disabilitate di default:
 
 - Campioni trend temperatura;
 - Stanza piu vicina alla rugiada;
 - Zona piu vicina alla rugiada.
 
-## Configurazione da UI
-
-L integrazione espone number/select per modificare:
-
-- soglie ingresso normale/spinto/recupero;
-- soglie anticipo normale/spinto/recupero;
-- trend minimo normale/spinto/recupero;
-- target mandata mantenimento/normale/spinto/recupero;
-- margine punto rugiada;
-- stato manuale: auto, mantenimento, normale, spinto, recupero.
-
 ## Roadmap
 
 ### v0.4 - Consenso comando
 
-Aggiunta di una entita binaria del tipo:
+Completata la base per dire a ESPHome se il target HA puo essere usato.
+
+### v0.5 - ESPHome log-only
+
+ESPHome leggera target HA e consenso, ma il PID continuera a usare la logica locale. Serve a confrontare:
 
 ```text
-binary_sensor.centralina_radiante_target_mandata_comandabile
+target curva locale
+target HA
+consenso HA
+target che verrebbe usato
 ```
 
-Sara `on` solo quando il target puo essere usato da ESPHome senza rischi:
+### v0.6 - Collegamento PID reale
 
-- Estate attiva;
-- target disponibile;
-- target entro range sicuro;
-- ACS non attiva;
-- standby porte non attivo;
-- nessuna protezione rugiada globale;
-- stato manuale non in conflitto.
-
-### v0.5 - Collegamento ESPHome
-
-ESPHome continuera ad avere curva locale e PID come fallback.
-
-Il target Home Assistant verra usato solo se:
+ESPHome usera il target Home Assistant solo se:
 
 ```text
 target disponibile + consenso comando on + valore nel range sicuro
 ```
 
-### v0.6 - Azioni locali opzionali
-
-Possibili azioni future:
-
-- richiesta deumidificazione zona giorno/notte;
-- suggerimento o comando locale su testine;
-- blocco o riduzione raffrescamento in stanze vicine alla rugiada;
-- gestione piu fine dei termostati.
+La curva locale ESPHome restera fallback.
 
 ### v1.0 - Centralina attiva
 
@@ -201,18 +170,4 @@ Home Assistant decide il target e le priorita climatiche
 ESPHome esegue localmente PID e sicurezza base
 ```
 
-La centralina dovra restare prudente: in caso di dati mancanti, ACS, standby o rischio condensa, deve preferire fallback e protezione.
-
-## Aggiornamenti HACS
-
-Per far vedere a HACS gli aggiornamenti in modo pulito, usare GitHub Releases.
-
-Regola pratica:
-
-1. aggiornare `manifest.json` con la nuova versione;
-2. aggiornare `CHANGELOG.md`;
-3. fare commit e push;
-4. creare una GitHub Release con tag coerente, ad esempio `v0.3.7`;
-5. in HACS usare il controllo aggiornamenti o attendere la scansione automatica.
-
-Solo creare un tag non basta: serve una release GitHub completa.
+La centralina deve restare prudente: in caso di dati mancanti, ACS, standby o rischio condensa, deve preferire fallback e protezione.
