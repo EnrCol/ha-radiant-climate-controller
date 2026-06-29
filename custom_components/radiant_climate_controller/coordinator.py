@@ -418,19 +418,19 @@ class RadiantClimateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     ) -> tuple[str, str, bool]:
         """Calculate the comfort state before hysteresis is applied."""
         if hottest_temp >= thresholds[STATE_RECOVERY]:
-            return STATE_RECOVERY, f"recupero: temperatura {hottest_temp:.1f} C, {trend_text}", False
+            return STATE_RECOVERY, "recupero: soglia recupero attiva", False
 
         if hottest_temp >= thresholds[STATE_BOOST]:
-            return STATE_BOOST, f"spinto: temperatura {hottest_temp:.1f} C, {trend_text}", False
+            return STATE_BOOST, "spinto: soglia spinto attiva", False
         if hottest_temp >= precool[STATE_BOOST] and trend_value >= trend_thresholds[STATE_BOOST]:
-            return STATE_BOOST, f"spinto anticipato: temperatura {hottest_temp:.1f} C, {trend_text}", True
+            return STATE_BOOST, f"spinto anticipato: soglia anticipo spinto attiva, {trend_text}", True
 
         if hottest_temp >= thresholds[STATE_NORMAL]:
-            return STATE_NORMAL, f"normale: temperatura {hottest_temp:.1f} C, {trend_text}", False
+            return STATE_NORMAL, "normale: soglia normale attiva", False
         if hottest_temp >= precool[STATE_NORMAL] and trend_value >= trend_thresholds[STATE_NORMAL]:
-            return STATE_NORMAL, f"normale anticipato: temperatura {hottest_temp:.1f} C, {trend_text}", True
+            return STATE_NORMAL, f"normale anticipato: soglia anticipo normale attiva, {trend_text}", True
 
-        return STATE_MAINTENANCE, f"mantenimento: temperatura {hottest_temp:.1f} C, {trend_text}", False
+        return STATE_MAINTENANCE, "mantenimento: sotto soglie raffrescamento", False
 
     def _comfort_state_and_target(
         self, hottest_temp: float | None, trend: float | None, trend_source: str | None
@@ -490,7 +490,7 @@ class RadiantClimateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 return (
                     last_state,
                     self._target_for_state(last_state),
-                    f"{last_state} mantenuto: temperatura {hottest_temp:.1f} C sopra uscita {exit_threshold:.1f} C, {trend_text}",
+                    f"{last_state} mantenuto: isteresi uscita attiva",
                     False,
                 )
 
