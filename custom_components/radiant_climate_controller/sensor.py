@@ -87,7 +87,7 @@ SENSORS: tuple[RadiantSensorDescription, ...] = (
         key="thermal_trend_per_hour",
         translation_key="thermal_trend_per_hour",
         value_key="thermal_trend_per_hour",
-        native_unit_of_measurement="°C/h",
+        native_unit_of_measurement="C/h",
     ),
     RadiantSensorDescription(
         key="thermal_trend_source",
@@ -98,19 +98,19 @@ SENSORS: tuple[RadiantSensorDescription, ...] = (
         key="thermal_trend_15m_per_hour",
         translation_key="thermal_trend_15m_per_hour",
         value_key="thermal_trend_15m_per_hour",
-        native_unit_of_measurement="°C/h",
+        native_unit_of_measurement="C/h",
     ),
     RadiantSensorDescription(
         key="thermal_trend_30m_per_hour",
         translation_key="thermal_trend_30m_per_hour",
         value_key="thermal_trend_30m_per_hour",
-        native_unit_of_measurement="°C/h",
+        native_unit_of_measurement="C/h",
     ),
     RadiantSensorDescription(
         key="thermal_trend_60m_per_hour",
         translation_key="thermal_trend_60m_per_hour",
         value_key="thermal_trend_60m_per_hour",
-        native_unit_of_measurement="°C/h",
+        native_unit_of_measurement="C/h",
     ),
     RadiantSensorDescription(
         key="thermal_trend_sample_count",
@@ -123,11 +123,15 @@ SENSORS: tuple[RadiantSensorDescription, ...] = (
         key="critical_dew_room",
         translation_key="critical_dew_room",
         value_key="critical_dew_room",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        entity_registry_enabled_default=False,
     ),
     RadiantSensorDescription(
         key="critical_dew_zone",
         translation_key="critical_dew_zone",
         value_key="critical_dew_zone",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        entity_registry_enabled_default=False,
     ),
     RadiantSensorDescription(
         key="critical_dew_delta",
@@ -135,36 +139,12 @@ SENSORS: tuple[RadiantSensorDescription, ...] = (
         value_key="critical_dew_delta",
         native_unit_of_measurement=UnitOfTemperature.CELSIUS,
     ),
-    RadiantSensorDescription(
-        key="critical_dew_state",
-        translation_key="critical_dew_state",
-        value_key="critical_dew_state",
-    ),
-    RadiantSensorDescription(
-        key="recommended_action",
-        translation_key="recommended_action",
-        value_key="recommended_action",
-    ),
-    RadiantSensorDescription(
-        key="target_reason",
-        translation_key="target_reason",
-        value_key="target_reason",
-    ),
-    RadiantSensorDescription(
-        key="action_reason",
-        translation_key="action_reason",
-        value_key="action_reason",
-    ),
-    RadiantSensorDescription(
-        key="critical_room_count",
-        translation_key="critical_room_count",
-        value_key="critical_room_count",
-    ),
-    RadiantSensorDescription(
-        key="warning_room_count",
-        translation_key="warning_room_count",
-        value_key="warning_room_count",
-    ),
+    RadiantSensorDescription(key="critical_dew_state", translation_key="critical_dew_state", value_key="critical_dew_state"),
+    RadiantSensorDescription(key="recommended_action", translation_key="recommended_action", value_key="recommended_action"),
+    RadiantSensorDescription(key="target_reason", translation_key="target_reason", value_key="target_reason"),
+    RadiantSensorDescription(key="action_reason", translation_key="action_reason", value_key="action_reason"),
+    RadiantSensorDescription(key="critical_room_count", translation_key="critical_room_count", value_key="critical_room_count"),
+    RadiantSensorDescription(key="warning_room_count", translation_key="warning_room_count", value_key="warning_room_count"),
 )
 
 
