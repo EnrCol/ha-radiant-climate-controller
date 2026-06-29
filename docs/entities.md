@@ -1,41 +1,124 @@
-# Entità
+# Entita
 
 ## Configurazione iniziale
 
-La config flow propone questi default:
+La config flow usa come riferimento la modalita stagionale:
 
 ```text
-season_entity:
-  input_select.modalita_stagionale
-
-temperature_entities:
-  climate.soggiorno,
-  climate.cucina,
-  sensor.temperatura_soggiorno,
-  sensor.soggiorno_temperature,
-  sensor.temperatura_cucina,
-  sensor.cucina_temperature
-
-humidity_entities:
-  sensor.umidita_media_zona_giorno,
-  sensor.umidita_soggiorno,
-  sensor.soggiorno_humidity,
-  sensor.umidita_cucina,
-  sensor.cucina_humidity
+input_select.modalita_stagionale
 ```
 
-La temperatura zona giorno usa il massimo dei valori validi.
+Il modello stanze e definito nel codice dell integrazione e rispecchia l impianto reale.
 
-L'umidità zona giorno usa la media dei valori validi.
+## Stanze
 
-## Sensori creati
+```text
+cucina
+soggiorno
+bagno
+studio
+camera
+camera_ricky
+```
 
-- Temperatura zona giorno
-- Umidità zona giorno
-- Punto rugiada zona giorno
-- Stato radiante
-- Target mandata richiesto
-- Target mandata sicuro
-- Target mandata finale
-- Delta sicurezza rugiada
-- Stato stagione
+Zone:
+
+```text
+giorno: cucina, soggiorno
+notte: bagno, studio, camera, camera_ricky
+```
+
+## Sensori principali
+
+| Entita | Scopo |
+|---|---|
+| Temperatura massima casa | Massima temperatura valida tra le stanze |
+| Umidita massima casa | Massima umidita valida tra le stanze |
+| Punto rugiada massimo casa | Punto rugiada peggiore usato per sicurezza mandata |
+| Stato radiante | Stato automatico: mantenimento, normale, spinto, recupero |
+| Target mandata comfort | Target richiesto dalla logica comfort |
+| Target mandata sicuro | Minimo consentito da punto rugiada + margine |
+| Target mandata consigliato | Target finale: max comfort/sicurezza |
+| Delta sicurezza target | Distanza tra target finale e punto rugiada |
+| Stato stagione | Stato letto da input_select.modalita_stagionale |
+| Stanza piu calda | Stanza piu calda stabilizzata con delta anti-rimbalzo |
+| Temperatura stanza piu calda | Temperatura della stanza piu calda stabilizzata |
+| Trend temperatura usato | Trend scelto dalla centralina per la logica |
+| Fonte trend temperatura | Fonte trend: 30m, 15m o non_disponibile |
+| Trend temperatura 15 min | Trend filtrato su 15 minuti |
+| Trend temperatura 30 min | Trend filtrato principale |
+| Trend temperatura 60 min | Trend filtrato lungo |
+| Delta minimo dalla rugiada | Delta peggiore tra temperatura stanza e punto rugiada |
+| Stato rischio rugiada | ok, attenzione, critico o unknown |
+| Azione consigliata | Azione logica suggerita |
+| Motivo target | Spiegazione sintetica del target |
+| Motivo azione | Spiegazione sintetica dell azione |
+| Stanze in rischio critico | Numero stanze in rischio critico |
+| Stanze in attenzione | Numero stanze in attenzione |
+
+## Entita diagnostiche
+
+Queste entita sono utili per debug, ma sono rumorose nello storico. Sono diagnostiche e disabilitate di default per nuove installazioni:
+
+| Entita | Scopo |
+|---|---|
+| Campioni trend temperatura | Numero campioni nella memoria trend |
+| Stanza piu vicina alla rugiada | Stanza con delta minore dalla rugiada |
+| Zona piu vicina alla rugiada | Zona della stanza piu vicina alla rugiada |
+
+Se erano gia state create da Home Assistant prima del cambio categoria, possono restare abilitate nel registro entita. In quel caso vanno disattivate manualmente una volta.
+
+## Number configurabili
+
+| Number | Scopo |
+|---|---|
+| Soglia normale | Temperatura ingresso stato normale |
+| Soglia spinto | Temperatura ingresso stato spinto |
+| Soglia recupero | Temperatura ingresso stato recupero |
+| Anticipo normale | Temperatura minima per normale anticipato |
+| Anticipo spinto | Temperatura minima per spinto anticipato |
+| Anticipo recupero | Parametro mantenuto per compatibilita, non usato da recupero anticipato |
+| Trend normale | Trend minimo per normale anticipato |
+| Trend spinto | Trend minimo per spinto anticipato |
+| Trend recupero | Parametro mantenuto per compatibilita, non usato da recupero anticipato |
+| Target mantenimento | Target mandata comfort in mantenimento |
+| Target normale | Target mandata comfort in normale |
+| Target spinto | Target mandata comfort in spinto |
+| Target recupero | Target mandata comfort in recupero |
+| Margine rugiada | Margine aggiunto al punto rugiada massimo casa |
+
+## Select configurabili
+
+| Select | Opzioni |
+|---|---|
+| Stato manuale | auto, mantenimento, normale, spinto, recupero |
+
+Lo stato manuale serve per test e diagnosi. In modalita auto la centralina calcola lo stato automaticamente.
+
+## Entita future previste
+
+### v0.4
+
+```text
+binary_sensor.centralina_radiante_target_mandata_comandabile
+sensor.centralina_radiante_motivo_target_non_comandabile
+```
+
+### v0.5
+
+Entita o documentazione per collegamento ESPHome:
+
+```text
+target_mandata_ha
+consenso_target_ha
+```
+
+### v0.6+
+
+Possibili entita future:
+
+- richiesta deumidificazione zona;
+- azione locale stanza;
+- protezione locale stanza;
+- suggerimento testina;
+- stato comando attivo.
