@@ -69,6 +69,11 @@ SENSORS: tuple[RadiantSensorDescription, ...] = (
         device_class=SensorDeviceClass.TEMPERATURE,
     ),
     RadiantSensorDescription(
+        key="target_commandable_reason",
+        translation_key="target_commandable_reason",
+        value_key="target_commandable_reason",
+    ),
+    RadiantSensorDescription(
         key="dew_point_delta",
         translation_key="dew_point_delta",
         value_key="dew_point_delta",
