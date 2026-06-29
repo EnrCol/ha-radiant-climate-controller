@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.4.1] - 2026-06-29
+
+### Added
+
+- Added Home Assistant command heartbeat sensor for ESPHome watchdog logic.
+- Added Italian/entity translations for the heartbeat sensor.
+
+### Notes
+
+This release lets ESPHome detect whether the Home Assistant command layer is fresh before trusting HA targets.
+
 ## [0.4.0] - 2026-06-29
 
 ### Added
