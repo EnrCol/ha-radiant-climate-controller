@@ -82,6 +82,8 @@ TREND_WINDOWS_SECONDS = {
 }
 
 STATE_HYSTERESIS_C = 0.3
+HOTTEST_ROOM_SWITCH_DELTA_C = 0.2
+TREND_REASON_STABLE_C_PER_H = 0.05
 STATE_RANK = {
     STATE_MAINTENANCE: 0,
     STATE_NORMAL: 1,
@@ -118,6 +120,7 @@ class RadiantClimateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self.entry = entry
         self._temperature_history: list[tuple[float, float]] = []
         self._last_comfort_state: str | None = None
+        self._last_hottest_room_key: str | None = None
         self._remove_state_listener: Callable[[], None] | None = None
         super().__init__(
             hass,
@@ -288,6 +291,29 @@ class RadiantClimateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             }
         return zones
 
+    def _select_hottest_room(self, rooms: dict[str, dict[str, Any]]) -> dict[str, Any] | None:
+        """Return a stable hottest room to avoid fast flips between similar rooms."""
+        candidates = [room for room in rooms.values() if room["temperature"] is not None]
+        if not candidates:
+            self._last_hottest_room_key = None
+            return None
+
+        candidate = max(candidates, key=lambda item: item["temperature"])
+        last_key = self._last_hottest_room_key
+        if last_key in rooms and candidate["key"] != last_key:
+            last_room = rooms[last_key]
+            last_temp = last_room.get("temperature")
+            candidate_temp = candidate.get("temperature")
+            if (
+                last_temp is not None
+                and candidate_temp is not None
+                and candidate_temp <= last_temp + HOTTEST_ROOM_SWITCH_DELTA_C
+            ):
+                return last_room
+
+        self._last_hottest_room_key = candidate["key"]
+        return candidate
+
     def _record_temperature_sample(self, temperature: float | None, now_ts: float) -> None:
         """Store a rolling history of max house temperature."""
         if temperature is None:
@@ -361,6 +387,16 @@ class RadiantClimateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             "trend_sample_count": len(self._temperature_history),
         }
 
+    def _trend_text_for_reason(self, trend: float | None, trend_source: str | None) -> str:
+        """Return a stable textual trend summary for reason sensors."""
+        if trend is None or trend_source in (None, "non_disponibile"):
+            return "trend filtrato non ancora disponibile"
+        if abs(trend) < TREND_REASON_STABLE_C_PER_H:
+            return f"trend {trend_source} stabile"
+        if trend > 0:
+            return f"trend {trend_source} in aumento"
+        return f"trend {trend_source} in calo"
+
     def _exit_threshold_for_state(self, state: str, thresholds: dict[str, float]) -> float | None:
         """Return the lower threshold used to leave the current state."""
         if state == STATE_RECOVERY:
@@ -416,12 +452,8 @@ class RadiantClimateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 False,
             )
 
-        if trend is None:
-            trend_value = 0.0
-            trend_text = "trend filtrato non ancora disponibile"
-        else:
-            trend_value = trend
-            trend_text = f"trend {trend_source} {trend_value:.2f} C/h"
+        trend_value = trend or 0.0
+        trend_text = self._trend_text_for_reason(trend, trend_source)
 
         thresholds = {
             STATE_RECOVERY: float(self.setting(OPT_THRESHOLD_RECOVERY, DEFAULT_THRESHOLD_RECOVERY)),
@@ -490,14 +522,7 @@ class RadiantClimateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             room for room in rooms.values() if room["dew_delta"] is not None
         ]
 
-        hottest_room = (
-            max(
-                rooms.values(),
-                key=lambda item: item["temperature"] if item["temperature"] is not None else -999,
-            )
-            if valid_temperatures
-            else None
-        )
+        hottest_room = self._select_hottest_room(rooms)
         nearest_dew_room = min(valid_deltas, key=lambda item: item["dew_delta"]) if valid_deltas else None
 
         zone_temperature = max(valid_temperatures) if valid_temperatures else None
