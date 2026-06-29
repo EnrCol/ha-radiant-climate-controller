@@ -2,42 +2,36 @@
 
 ## Fase attuale
 
-La serie 0.3.x osserva la casa e calcola:
+La serie 0.4 aggiunge il consenso comando.
 
-- stato radiante;
-- target mandata comfort;
-- target mandata sicuro;
-- target mandata consigliato;
-- azione consigliata;
-- rischio rugiada.
+La centralina ora calcola anche:
 
-Non esegue ancora comandi sugli attuatori.
+- target mandata comandabile;
+- motivo target non comandabile.
+
+Non pilota ancora il PID reale.
 
 ## Prossime fasi
 
-### v0.4
-
-Aggiungere un consenso comando per stabilire quando il target puo essere usato da ESPHome.
-
 ### v0.5
 
-Integrare ESPHome in lettura, mantenendo fallback locale.
+ESPHome in lettura e log, mantenendo fallback locale.
 
 ### v0.6
 
-Usare il target Home Assistant come setpoint del PID solo quando il consenso e valido.
+Uso del target Home Assistant come setpoint del PID solo quando il consenso e valido.
 
 ### v0.7
 
-Valutare azioni su deumidificazione zona giorno e zona notte.
+Azioni su deumidificazione zona giorno e zona notte.
 
 ### v0.8
 
-Valutare azioni locali sulle stanze, in particolare in caso di rischio rugiada.
+Azioni locali sulle stanze in caso di rischio rugiada.
 
 ### v1.0
 
-Centralina attiva stabile: Home Assistant decide la strategia, ESPHome esegue il controllo locale in sicurezza.
+Centralina attiva stabile: Home Assistant decide la strategia, ESPHome esegue in sicurezza.
 
 ## Regole
 
@@ -45,4 +39,3 @@ Centralina attiva stabile: Home Assistant decide la strategia, ESPHome esegue il
 - Sicurezza rugiada sempre prioritaria.
 - ACS e standby devono bloccare il comando utile.
 - Nessun comando attivo senza consenso esplicito.
-- I package esistenti si semplificano solo dopo validazione della centralina.
