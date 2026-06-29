@@ -2,15 +2,9 @@
 
 ## Stato attuale
 
-Nella serie `0.3.x` l integrazione non deve ancora comandare ESPHome.
+La serie 0.4 espone il consenso comando per ESPHome, ma non pilota ancora il PID reale.
 
-Il target mandata consigliato e solo osservativo. Serve per verificare se la logica della centralina e stabile prima di usarla come comando reale.
-
-## Obiettivo
-
-ESPHome restera responsabile del controllo locale della valvola miscelatrice e del PID.
-
-Home Assistant fornira:
+Home Assistant fornisce:
 
 ```text
 target mandata consigliato
@@ -18,39 +12,31 @@ consenso a usare il target
 motivo del consenso o del blocco
 ```
 
-ESPHome dovra sempre avere fallback locale.
+ESPHome deve sempre mantenere una curva locale di fallback.
 
-## Entita previste v0.4
-
-La prossima fase prevede una entita binaria:
+## Entita v0.4
 
 ```text
+sensor.centralina_radiante_target_mandata_consigliato
 binary_sensor.centralina_radiante_target_mandata_comandabile
-```
-
-Sara `on` solo se il target puo essere usato in sicurezza.
-
-Condizioni previste:
-
-```text
-modalita Estate
-ACS non attiva
-standby porte non attivo
-standby rugiada non attivo
-nessuna protezione globale attiva
-target disponibile
-target nel range sicuro
-```
-
-Possibile sensore aggiuntivo:
-
-```text
 sensor.centralina_radiante_motivo_target_non_comandabile
 ```
 
-## Import ESPHome previsto
+Il binary sensor e on solo con condizioni sicure:
 
-Esempio futuro:
+```text
+Estate attiva
+stato manuale auto
+stato radiante noto
+target disponibile
+target tra 17 C e 23 C
+ACS non attiva
+standby porte non attivo
+protezione rugiada globale non attiva
+nessuna protezione locale rugiada prioritaria
+```
+
+## Import ESPHome previsto
 
 ```yaml
 sensor:
@@ -66,70 +52,37 @@ binary_sensor:
     internal: true
 ```
 
-Gli entity_id reali possono cambiare in base al nome configurato nella config flow. Verificare sempre gli entity_id creati da Home Assistant.
+## Fase log-only
 
-## Priorita nel calcolo target ESPHome
+Prima del comando reale, ESPHome deve solo leggere e loggare:
 
-ESPHome dovra mantenere una curva locale come fallback.
-
-Esempio logico:
-
-```cpp
-float target = target_da_curva;
-
-if (
-  id(target_mandata_ha_comandabile).state &&
-  id(target_mandata_ha).has_state()
-) {
-  float ha_target = id(target_mandata_ha).state;
-
-  if (!isnan(ha_target) && ha_target >= 17.0f && ha_target <= 23.0f) {
-    target = ha_target;
-  }
-}
+```text
+target curva locale
+target HA
+consenso HA
+target che verrebbe usato
 ```
 
-## Sicurezze che devono restare locali
+Il PID continua a usare la logica attuale.
 
-Anche quando Home Assistant iniziera a fornire il target, ESPHome deve mantenere protezioni locali minime:
+## Comando reale futuro
+
+Quando passeremo al comando reale, ESPHome dovra usare il target HA solo se il consenso e on e il valore e nel range sicuro.
+
+Se HA non risponde, se il target manca o se il consenso e off, ESPHome resta sulla curva locale.
+
+## Sicurezze locali da mantenere
 
 - range target valido;
 - fallback se HA non risponde;
 - fallback se sensore target e unavailable;
-- blocco ACS se gia gestito localmente;
+- blocco ACS se gestito localmente;
 - manual override della valvola;
 - limite fisico sulla percentuale valvola.
 
 ## Semantica valvola
 
-Nel tuo impianto:
-
 ```text
-Estate:
-100% = piu acqua fredda da PDC/deumidificatori
-0% = piu ritorno/ricircolo caldo
-
-Inverno:
-100% = piu acqua calda
-0% = piu ritorno/ricircolo freddo
+Estate: 100% = piu acqua fredda, 0% = piu ritorno caldo
+Inverno: 100% = piu acqua calda, 0% = piu ritorno freddo
 ```
-
-Questa semantica deve restare documentata nel codice ESPHome e non va nascosta nella sola integrazione Home Assistant.
-
-## Roadmap ESPHome
-
-### v0.4
-
-Aggiunta consenso comando in Home Assistant.
-
-### v0.5
-
-Adattatore ESPHome documentato e testato in sola lettura/log.
-
-### v0.6
-
-Uso reale del target HA sul PID, con fallback attivo.
-
-### v1.0
-
-Centralina attiva stabile: Home Assistant decide il target, ESPHome esegue localmente in sicurezza.
