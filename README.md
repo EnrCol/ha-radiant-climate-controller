@@ -16,9 +16,12 @@ Il progetto nasce per un impianto radiante in raffrescamento con:
 
 ## Stato attuale
 
-La serie `0.4.x` introduce il primo livello di preparazione al comando ESPHome.
+La serie `0.4.x` introduce la preparazione al comando ESPHome.
 
-L integrazione **non comanda ancora direttamente ESPHome**, ma espone un consenso esplicito per dire se il target mandata consigliato puo essere usato come comando esterno.
+L integrazione **non comanda ancora direttamente ESPHome**, ma espone:
+
+- un consenso esplicito per dire se il target mandata consigliato puo essere usato come comando esterno;
+- un heartbeat comando HA per permettere a ESPHome di capire se il comando Home Assistant e ancora fresco.
 
 Oggi l integrazione:
 
@@ -33,6 +36,7 @@ Oggi l integrazione:
 - espone target comfort, target sicuro e target consigliato;
 - espone azione consigliata e motivo azione;
 - espone `Target mandata comandabile` per il futuro collegamento a ESPHome;
+- espone `Heartbeat comando HA` per watchdog/freshness lato ESPHome;
 - espone il motivo quando il target non e comandabile;
 - permette configurazione da UI tramite entita number/select.
 
@@ -49,6 +53,7 @@ stanze + trend + rugiada + deumidifica + standby + stagione
 → stato radiante
 → target mandata sicuro
 → consenso comando
+→ heartbeat comando
 → ESPHome PID valvola miscelatrice
 → eventuali azioni su deumidifica, testine e termostati
 ```
@@ -68,11 +73,12 @@ Il recupero anticipato e disattivato: il recupero entra solo sopra la soglia rea
 
 ## Consenso comando v0.4
 
-La v0.4 aggiunge:
+La v0.4 espone:
 
 ```text
 binary_sensor.centralina_radiante_target_mandata_comandabile
 sensor.centralina_radiante_motivo_target_non_comandabile
+sensor.centralina_radiante_heartbeat_comando_ha
 ```
 
 Il target e comandabile solo quando:
@@ -87,7 +93,7 @@ Il target e comandabile solo quando:
 - protezione rugiada globale non attiva;
 - non c e una protezione locale rugiada o richiesta deumidifica prioritaria.
 
-Questo consenso e pensato per ESPHome: il PID potra usare il target Home Assistant solo quando il binary sensor e `on`.
+L heartbeat deve cambiare regolarmente. Se resta fermo, ESPHome deve ignorare il target Home Assistant e usare la curva locale.
 
 ## Sicurezza rugiada
 
@@ -111,6 +117,7 @@ Sensori principali:
 - Target mandata sicuro;
 - Target mandata consigliato;
 - Motivo target non comandabile;
+- Heartbeat comando HA;
 - Delta sicurezza target;
 - Stanza piu calda;
 - Temperatura stanza piu calda;
@@ -136,18 +143,15 @@ Entita diagnostiche disabilitate di default:
 
 ## Roadmap
 
-### v0.4 - Consenso comando
-
-Completata la base per dire a ESPHome se il target HA puo essere usato.
-
 ### v0.5 - ESPHome log-only
 
-ESPHome leggera target HA e consenso, ma il PID continuera a usare la logica locale. Serve a confrontare:
+ESPHome leggera target HA, consenso e heartbeat, ma il PID continuera a usare la logica locale. Serve a confrontare:
 
 ```text
 target curva locale
 target HA
 consenso HA
+heartbeat HA fresco
 target che verrebbe usato
 ```
 
@@ -156,7 +160,7 @@ target che verrebbe usato
 ESPHome usera il target Home Assistant solo se:
 
 ```text
-target disponibile + consenso comando on + valore nel range sicuro
+target disponibile + consenso comando on + heartbeat fresco + valore nel range sicuro
 ```
 
 La curva locale ESPHome restera fallback.
@@ -170,4 +174,4 @@ Home Assistant decide il target e le priorita climatiche
 ESPHome esegue localmente PID e sicurezza base
 ```
 
-La centralina deve restare prudente: in caso di dati mancanti, ACS, standby o rischio condensa, deve preferire fallback e protezione.
+La centralina deve restare prudente: in caso di dati mancanti, ACS, standby, heartbeat vecchio o rischio condensa, deve preferire fallback e protezione.
