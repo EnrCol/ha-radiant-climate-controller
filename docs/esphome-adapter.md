@@ -10,16 +10,18 @@ Home Assistant fornisce:
 target mandata consigliato
 consenso a usare il target
 motivo del consenso o del blocco
+heartbeat comando HA
 ```
 
 ESPHome deve sempre mantenere una curva locale di fallback.
 
-## Entita v0.4
+## Entita v0.4.1
 
 ```text
 sensor.centralina_radiante_target_mandata_consigliato
 binary_sensor.centralina_radiante_target_mandata_comandabile
 sensor.centralina_radiante_motivo_target_non_comandabile
+sensor.centralina_radiante_heartbeat_comando_ha
 ```
 
 Il binary sensor e on solo con condizioni sicure:
@@ -36,6 +38,8 @@ protezione rugiada globale non attiva
 nessuna protezione locale rugiada prioritaria
 ```
 
+L heartbeat deve cambiare regolarmente. Se non cambia per alcuni minuti, ESPHome deve ignorare il target HA e usare la curva locale.
+
 ## Import ESPHome previsto
 
 ```yaml
@@ -43,6 +47,11 @@ sensor:
   - platform: homeassistant
     id: target_mandata_ha
     entity_id: sensor.centralina_radiante_target_mandata_consigliato
+    internal: true
+
+  - platform: homeassistant
+    id: heartbeat_comando_ha
+    entity_id: sensor.centralina_radiante_heartbeat_comando_ha
     internal: true
 
 binary_sensor:
@@ -60,6 +69,7 @@ Prima del comando reale, ESPHome deve solo leggere e loggare:
 target curva locale
 target HA
 consenso HA
+heartbeat HA fresco
 target che verrebbe usato
 ```
 
@@ -67,9 +77,15 @@ Il PID continua a usare la logica attuale.
 
 ## Comando reale futuro
 
-Quando passeremo al comando reale, ESPHome dovra usare il target HA solo se il consenso e on e il valore e nel range sicuro.
+Quando passeremo al comando reale, ESPHome dovra usare il target HA solo se:
 
-Se HA non risponde, se il target manca o se il consenso e off, ESPHome resta sulla curva locale.
+```text
+consenso HA on
+heartbeat fresco
+target valido nel range sicuro
+```
+
+Se HA non risponde, se il target manca, se l heartbeat e vecchio o se il consenso e off, ESPHome resta sulla curva locale.
 
 ## Sicurezze locali da mantenere
 
