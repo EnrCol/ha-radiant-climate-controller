@@ -39,6 +39,7 @@ notte: bagno, studio, camera, camera_ricky
 | Target mandata comfort | Target richiesto dalla logica comfort |
 | Target mandata sicuro | Minimo consentito da punto rugiada + margine |
 | Target mandata consigliato | Target finale: max comfort/sicurezza |
+| Motivo target non comandabile | Spiega perche ESPHome non deve usare il target come comando |
 | Delta sicurezza target | Distanza tra target finale e punto rugiada |
 | Stato stagione | Stato letto da input_select.modalita_stagionale |
 | Stanza piu calda | Stanza piu calda stabilizzata con delta anti-rimbalzo |
@@ -55,6 +56,26 @@ notte: bagno, studio, camera, camera_ricky
 | Motivo azione | Spiegazione sintetica dell azione |
 | Stanze in rischio critico | Numero stanze in rischio critico |
 | Stanze in attenzione | Numero stanze in attenzione |
+
+## Binary sensor
+
+| Entita | Scopo |
+|---|---|
+| Target mandata comandabile | On quando ESPHome puo usare il target HA come comando |
+
+Il target e comandabile solo se:
+
+```text
+Estate attiva
+stato manuale auto
+stato radiante noto
+target disponibile
+target tra 17 C e 23 C
+ACS non attiva
+standby porte non attivo
+protezione rugiada globale non attiva
+nessuna protezione locale rugiada prioritaria
+```
 
 ## Entita diagnostiche
 
@@ -97,20 +118,14 @@ Lo stato manuale serve per test e diagnosi. In modalita auto la centralina calco
 
 ## Entita future previste
 
-### v0.4
-
-```text
-binary_sensor.centralina_radiante_target_mandata_comandabile
-sensor.centralina_radiante_motivo_target_non_comandabile
-```
-
 ### v0.5
 
-Entita o documentazione per collegamento ESPHome:
+ESPHome log-only:
 
 ```text
 target_mandata_ha
 consenso_target_ha
+target_che_verrebbe_usato
 ```
 
 ### v0.6+
