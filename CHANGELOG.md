@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.3.7] - 2026-06-29
+
+### Changed
+
+- Disattivato il recupero anticipato basato sul trend.
+- Il recupero entra solo quando la temperatura supera la soglia reale di recupero.
+- Restano attivi normale anticipato e spinto anticipato.
+
+### Notes
+
+Questa versione riduce i passaggi rapidi tra recupero anticipato e spinto quando la temperatura e quasi stabile.
+
 ## [0.3.6] - 2026-06-29
 
 ### Changed
