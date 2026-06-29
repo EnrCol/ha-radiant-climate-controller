@@ -2,49 +2,81 @@
 
 ## Stanze considerate
 
-La centralina deve considerare tutte le stanze servite dal radiante:
+La centralina considera tutte le stanze servite dal radiante:
 
-- soggiorno
-- cucina
-- bagno
-- studio
-- camera
-- camera Ricky
+- soggiorno;
+- cucina;
+- bagno;
+- studio;
+- camera;
+- camera Ricky.
 
-## Sensori umidità da tenere come riferimento
+## Zone deumidificazione
+
+### Zona giorno
+
+Stanze:
+
+- soggiorno;
+- cucina.
+
+Servita dal deumidificatore idronico zona giorno.
+
+### Zona notte
+
+Stanze:
+
+- bagno;
+- studio;
+- camera;
+- camera Ricky.
+
+Servita dal deumidificatore idronico zona notte.
+
+## Sensori stanza
+
+La centralina usa, dove disponibili:
+
+- temperatura stanza;
+- umidita stanza;
+- punto rugiada stanza;
+- boolean sicurezza rugiada stanza;
+- appartenenza zona giorno/notte.
+
+Esempi di sensori temperatura:
 
 ```text
-sensor.umidita_media_zona_giorno
-sensor.umidita_media_zona_notte
-sensor.umidita_soggiorno
+sensor.temperatura_cucina
+sensor.temperatura_soggiorno
+sensor.temperatura_bagno
+sensor.temperatura_studio
+sensor.temperatura_camera
+sensor.temperatura_camera_ricky
+```
+
+Esempi di sensori umidita:
+
+```text
 sensor.umidita_cucina
+sensor.umidita_soggiorno
 sensor.umidita_bagno
 sensor.umidita_studio
 sensor.umidita_camera
 sensor.umidita_camera_ricky
 ```
 
-## Zone deumidificazione
+## Stato fisico della casa
 
-### Zona giorno
+Il modello deve tenere conto della casa reale.
 
-Servita da un deumidificatore idronico dedicato.
+Esempi noti:
 
-Stanze:
+- soggiorno esposto a sud, con apporto solare elevato;
+- porta vetrata del soggiorno piu critica delle finestre isolate con triplo vetro e tapparelle quasi chiuse;
+- camera con flusso radiante ridotto per evitare eccesso di calore in inverno;
+- comportamento delle stanze non uniforme.
 
-- soggiorno
-- cucina
-
-### Zona notte
-
-Servita da un secondo deumidificatore idronico.
-
-Stanze:
-
-- bagno
-- studio
-- camera
-- camera Ricky
+Quindi la centralina non deve ragionare solo su medie. Deve guardare il locale peggiore e stabilizzare solo le entita descrittive per evitare rumore.
 
 ## Stato attuale impianto
 
@@ -54,52 +86,87 @@ Il termostato che chiama:
 
 1. apre le testine della propria zona;
 2. abilita il circuito radiante della stanza/zona;
-3. fa partire la pompa di ricircolo posizionata appena sopra la valvola miscelatrice.
+3. fa partire la pompa di ricircolo posizionata sopra la valvola miscelatrice.
 
-Attualmente i termostati vengono lasciati con target difficili da raggiungere, così il pavimento può lavorare quasi in continuo.
+Attualmente i termostati possono essere lasciati con target difficili da raggiungere, cosi il pavimento lavora quasi in continuo.
 
 ## Storico funzionamento
 
-Negli anni precedenti il pavimento lavorava con mandata fissa regolata manualmente tra 18°C e 19°C dall'integrazione della PDC.
+In passato il pavimento lavorava con mandata fissa regolata manualmente tra 18 C e 19 C dall integrazione della PDC.
 
-Questa scelta era necessaria perché non erano ancora installati i deumidificatori idronici.
+Questa scelta era necessaria per evitare condensa quando non erano ancora disponibili i deumidificatori idronici.
 
 ## Nuova architettura con deumidificatori
 
-I deumidificatori idronici consigliano acqua a circa 16°C.
+I deumidificatori idronici lavorano meglio con acqua piu fredda, indicativamente intorno a 16 C.
 
-Per questo è stata installata una valvola miscelatrice sul circuito pavimento:
+Per separare le esigenze e stata installata una valvola miscelatrice sul circuito pavimento:
 
 ```text
-PDC / deumidificatori: circa 16°C
-valvola miscelatrice: miscela acqua fredda e ritorno
-pavimento radiante: target variabile circa 18-20°C
+PDC / deumidificatori: acqua piu fredda
+valvola miscelatrice: miscela mandata fredda e ritorno
+pavimento radiante: target variabile e sicuro contro condensa
 ```
 
-La valvola miscelatrice serve quindi a separare due esigenze diverse:
+La valvola miscelatrice separa quindi:
 
-- deumidificatori: acqua più fredda;
-- pavimento: acqua più alta e sicura contro condensa.
+- deumidificatori: acqua piu fredda;
+- pavimento: acqua piu alta, stabile e protetta dalla rugiada.
 
 ## Principio di controllo
 
-La temperatura più alta tra le stanze guida la richiesta di raffrescamento.
+La temperatura piu alta tra le stanze guida la richiesta di raffrescamento.
 
-La stanza più vicina alla rugiada guida la sicurezza.
+Il punto rugiada massimo casa guida la sicurezza della mandata.
 
-La media è utile per statistiche e comfort generale, ma non deve nascondere il locale peggiore.
+Il delta minimo dalla rugiada serve a capire quanto la casa e vicina al rischio condensa.
 
-## Ruolo della futura centralina
+La media e utile per comfort generale, ma non deve nascondere il locale peggiore.
 
-La centralina non deve sostituire subito tutta la logica esistente.
+## Stato radiante
 
-Prima deve osservare e calcolare:
+Gli stati automatici sono:
 
-- stanza più calda;
-- stanza più umida;
-- stanza più vicina alla rugiada;
-- zona deumidifica interessata;
-- target mandata pavimento consigliato;
-- eventuale azione locale suggerita su testina/termostato.
+```text
+mantenimento
+normale
+spinto
+recupero
+```
 
-Solo dopo potrà comandare direttamente target, deumidifica, testine o termostati.
+La centralina usa:
+
+- soglie reattive;
+- trend filtrato;
+- anticipo per normale e spinto;
+- nessun recupero anticipato;
+- isteresi sugli stati.
+
+## Ruolo della centralina
+
+### Oggi
+
+Osserva e calcola:
+
+- temperatura massima casa;
+- stanza piu calda;
+- stato radiante;
+- target comfort;
+- target sicuro;
+- target consigliato;
+- rischio rugiada;
+- azione consigliata.
+
+### Prossimo passo
+
+Aggiungere consenso comando verso ESPHome.
+
+### Futuro
+
+Solo dopo verifica:
+
+- comando target mandata ESPHome;
+- eventuale azione su deumidifica;
+- eventuale gestione locale testine;
+- eventuale coordinamento termostati;
+- semplificazione dei package ridondanti.
