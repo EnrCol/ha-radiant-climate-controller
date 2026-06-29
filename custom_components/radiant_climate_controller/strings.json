@@ -4,7 +4,7 @@
     "step": {
       "user": {
         "title": "Configura centralina radiante",
-        "description": "La v0.3 usa il modello stanze dell'impianto di Enrico e parametri configurabili da UI.",
+        "description": "La v0.4 aggiunge il consenso comando per ESPHome, mantenendo la centralina prudente.",
         "data": {
           "name": "Nome",
           "season_entity": "Entita modalita stagionale"
@@ -16,6 +16,9 @@
     }
   },
   "entity": {
+    "binary_sensor": {
+      "target_commandable": {"name": "Target mandata comandabile"}
+    },
     "sensor": {
       "zone_temperature": {"name": "Temperatura massima casa"},
       "zone_humidity": {"name": "Umidita massima casa"},
@@ -24,6 +27,7 @@
       "target_requested": {"name": "Target mandata comfort"},
       "target_safe": {"name": "Target mandata sicuro"},
       "target_final": {"name": "Target mandata consigliato"},
+      "target_commandable_reason": {"name": "Motivo target non comandabile"},
       "dew_point_delta": {"name": "Delta sicurezza target"},
       "season_state": {"name": "Stato stagione"},
       "hottest_room": {"name": "Stanza piu calda"},
