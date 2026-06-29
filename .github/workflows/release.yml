@@ -56,30 +56,15 @@ jobs:
           echo "Release version: ${VERSION}"
           echo "Release tag: v${VERSION}"
 
-      - name: Extract changelog section
+      - name: Create release notes file
         shell: bash
         run: |
-          python3 - <<'PY'
-          import re
-          from pathlib import Path
+          cat > release-notes.md <<EOF
+          ## v${{ steps.version.outputs.version }}
 
-          version = "${{ steps.version.outputs.version }}"
-          changelog = Path("CHANGELOG.md")
-
-          notes = None
-          if changelog.exists():
-              text = changelog.read_text(encoding="utf-8")
-              pattern = rf"^## \[{re.escape(version)}\].*?(?=^## \[|\Z)"
-              match = re.search(pattern, text, flags=re.M | re.S)
-              if match:
-                  notes = match.group(0).strip()
-
-          if not notes:
-              notes = f"## [{version}]\n\nRelease created from manifest version {version}."
-
-          Path("release-notes.md").write_text(notes + "\n", encoding="utf-8")
-          print(notes)
-          PY
+          Release created from manifest version ${{ steps.version.outputs.version }}.
+          EOF
+          cat release-notes.md
 
       - name: Check release does not already exist
         env:
