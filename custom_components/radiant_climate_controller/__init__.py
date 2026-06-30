@@ -8,6 +8,9 @@ from homeassistant.core import HomeAssistant
 
 from .const import DATA_COORDINATOR, DOMAIN
 from .coordinator import RadiantClimateCoordinator
+from .coordinator_patch import apply_coordinator_bugfixes as _apply_042_fixes
+
+_apply_042_fixes(RadiantClimateCoordinator)
 
 PLATFORMS: list[Platform] = [Platform.SENSOR, Platform.BINARY_SENSOR, Platform.NUMBER, Platform.SELECT]
 
