@@ -3,8 +3,10 @@
   "name": "Radiant Climate Controller",
   "codeowners": ["@EnrCol"],
   "config_flow": true,
+  "documentation": "https://github.com/EnrCol/ha-radiant-climate-controller",
   "iot_class": "local_polling",
   "integration_type": "hub",
+  "issue_tracker": "https://github.com/EnrCol/ha-radiant-climate-controller/issues",
   "single_config_entry": true,
   "requirements": [],
   "version": "0.4.2"
