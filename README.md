@@ -58,6 +58,26 @@ stanze + trend + rugiada + deumidifica + standby + stagione
 → eventuali azioni su deumidifica, testine e termostati
 ```
 
+## Prima fase invernale: sola simulazione
+
+La prima implementazione invernale calcola un target di mandata **senza inviare comandi**:
+
+- `sensor.centralina_radiante_target_mandata_inverno_simulazione`: curva da 30 °C
+  con 0 °C esterni a 26 °C con 18 °C esterni, con limiti saturati;
+- `sensor.centralina_radiante_stato_inverno_simulazione`: richiesta rilevata
+  dai sei termostati, priorita ACS o indisponibilita dati.
+
+La fonte esterna e `sensor.ecodan_ashp_outside_temperature`.
+Se manca o non e numerica, il target della simulazione non e disponibile.
+Non sono state aggiunte nuove opzioni di taratura.
+
+**In inverno il target di comando esistente rimane non disponibile e
+`Target mandata comandabile` resta OFF.** ESP32 mantiene il PID e la sua
+curva locale; i comandi alla PDC, la sincronizzazione stagionale e la
+separazione degli standby ACS/estate devono essere verificati e attivati
+in una fase distinta. Non installare questa versione aspettandosi che
+abiliti automaticamente il riscaldamento.
+
 ## Strategia climatica estiva
 
 La logica estiva usa la temperatura piu alta tra le stanze come riferimento principale.
