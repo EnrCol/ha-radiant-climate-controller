@@ -32,6 +32,8 @@ SENSORS: tuple[RadiantSensorDescription, ...] = (
     RadiantSensorDescription(key="target_requested", translation_key="target_requested", value_key="target_requested", native_unit_of_measurement=UnitOfTemperature.CELSIUS, device_class=SensorDeviceClass.TEMPERATURE),
     RadiantSensorDescription(key="target_safe", translation_key="target_safe", value_key="target_safe", native_unit_of_measurement=UnitOfTemperature.CELSIUS, device_class=SensorDeviceClass.TEMPERATURE),
     RadiantSensorDescription(key="target_final", translation_key="target_final", value_key="target_final", native_unit_of_measurement=UnitOfTemperature.CELSIUS, device_class=SensorDeviceClass.TEMPERATURE),
+    RadiantSensorDescription(key="winter_target_preview", translation_key="winter_target_preview", value_key="winter_target_preview", native_unit_of_measurement=UnitOfTemperature.CELSIUS, device_class=SensorDeviceClass.TEMPERATURE, entity_category=EntityCategory.DIAGNOSTIC),
+    RadiantSensorDescription(key="winter_status", translation_key="winter_status", value_key="winter_status", entity_category=EntityCategory.DIAGNOSTIC),
     RadiantSensorDescription(key="target_commandable_reason", translation_key="target_commandable_reason", value_key="target_commandable_reason"),
     RadiantSensorDescription(key="command_heartbeat", translation_key="command_heartbeat", value_key="command_heartbeat", entity_category=EntityCategory.DIAGNOSTIC),
     RadiantSensorDescription(key="dew_point_delta", translation_key="dew_point_delta", value_key="dew_point_delta", native_unit_of_measurement=UnitOfTemperature.CELSIUS),
