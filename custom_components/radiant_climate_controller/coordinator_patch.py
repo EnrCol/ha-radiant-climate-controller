@@ -33,6 +33,8 @@ from .const import (
     STATE_UNKNOWN,
 )
 from .coordinator import TARGET_COMMAND_MAX_C, TARGET_COMMAND_MIN_C
+from .rooms import ROOMS
+from .winter import OUTDOOR_ENTITY, winter_curve_target, winter_demand_status
 
 
 def _patched_base_comfort_state(
@@ -153,6 +155,24 @@ def _patched_calculate(self) -> dict[str, Any]:
     standby_attivo = self._is_on(ENTITY_STANDBY_ATTIVO)
     manual_state = self.setting(OPT_MANUAL_STATE, MANUAL_AUTO)
 
+    # Winter remains read-only: the active ESP32 curve/PID and PDC are not commanded.
+    winter_target_preview = None
+    winter_status = "non_inverno"
+    if season_state == "Inverno":
+        winter_target_preview = winter_curve_target(self._float_state(OUTDOOR_ENTITY))
+        thermostat_states = []
+        for cfg in ROOMS.values():
+            thermostat = self.hass.states.get(cfg["climate"])
+            thermostat_states.append(
+                (thermostat.state, thermostat.attributes.get("hvac_action"))
+                if thermostat is not None else (None, None)
+            )
+        winter_status = (
+            "temperatura_esterna_non_disponibile"
+            if winter_target_preview is None
+            else winter_demand_status(thermostat_states, acs_active=acs_block)
+        )
+
     critical_rooms = [room for room in rooms.values() if room["risk"] == "critico"]
     warning_rooms = [room for room in rooms.values() if room["risk"] == "attenzione"]
     critical_zones = {room["zone"] for room in critical_rooms if room.get("zone")}
@@ -225,6 +245,8 @@ def _patched_calculate(self) -> dict[str, Any]:
         "target_requested": target_requested,
         "target_safe": target_safe,
         "target_final": target_final,
+        "winter_target_preview": winter_target_preview,
+        "winter_status": winter_status,
         "target_commandable": target_commandable,
         "target_commandable_reason": target_commandable_reason,
         "command_heartbeat": int(time.time()),

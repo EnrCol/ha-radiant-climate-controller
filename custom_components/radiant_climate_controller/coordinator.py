@@ -70,6 +70,7 @@ from .const import (
     STATE_UNKNOWN,
 )
 from .rooms import ROOMS, ZONE_DEHUMIDIFIERS
+from .winter import OUTDOOR_ENTITY
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -163,6 +164,7 @@ class RadiantClimateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         data = self.entry.data
         entity_ids: set[str] = {
             data.get(CONF_SEASON_ENTITY),
+            OUTDOOR_ENTITY,
             ENTITY_DEW_POINT_MARGIN,
             ENTITY_DEW_POINT_MAX_HOUSE,
             ENTITY_STANDBY_RUGIADA,
@@ -178,6 +180,7 @@ class RadiantClimateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                     cfg.get("humidity"),
                     cfg.get("dew_point"),
                     cfg.get("safety_boolean"),
+                    cfg.get("climate"),
                 }
             )
 
