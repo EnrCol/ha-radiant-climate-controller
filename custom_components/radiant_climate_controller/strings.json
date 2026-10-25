@@ -27,6 +27,8 @@
       "target_requested": {"name": "Target mandata comfort"},
       "target_safe": {"name": "Target mandata sicuro"},
       "target_final": {"name": "Target mandata consigliato"},
+      "winter_target_preview": {"name": "Target mandata inverno (simulazione)"},
+      "winter_status": {"name": "Stato inverno (simulazione)"},
       "target_commandable_reason": {"name": "Motivo target non comandabile"},
       "command_heartbeat": {"name": "Heartbeat comando HA"},
       "dew_point_delta": {"name": "Delta sicurezza target"},
