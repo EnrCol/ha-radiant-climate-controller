@@ -62,9 +62,9 @@ stanze + trend + rugiada + deumidifica + standby + stagione
 
 La prima implementazione invernale calcola un target di mandata **senza inviare comandi**:
 
-- `sensor.centralina_radiante_target_mandata_inverno_simulazione`: curva da 30 °C
+- `winter_target_preview` (nuovo sensore diagnostico): curva da 30 °C
   con 0 °C esterni a 26 °C con 18 °C esterni, con limiti saturati;
-- `sensor.centralina_radiante_stato_inverno_simulazione`: richiesta rilevata
+- `winter_status` (nuovo sensore diagnostico): richiesta rilevata
   dai sei termostati, priorita ACS o indisponibilita dati.
 
 La fonte esterna e `sensor.ecodan_ashp_outside_temperature`.
